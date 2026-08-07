@@ -130,7 +130,7 @@ class TestCLI(unittest.TestCase):
     def _bootstrap_payload(self, assigned=None):
         return json.dumps({"taxonomy": helpers.TAXONOMY,
                            "assignments": assigned if assigned is not None
-                           else helpers.ASSIGNED})
+                           else helpers.ASSIGNED_ALL})
 
     def test_status_requires_graph(self):
         with helpers.EnvSandbox(copy_fixtures=True):
@@ -150,7 +150,6 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertIn("bootstrapped: 2 categories", proc.stdout)
             self.assertIn("design target is 8–12", proc.stderr)
-            self.assertIn("left uncategorized", proc.stderr)
 
             obj = _read_categories()
             self.assertTrue(obj["taxonomy_approved_at"])
@@ -159,8 +158,8 @@ class TestCLI(unittest.TestCase):
 
             status = json.loads(_cli("status", "--full").stdout)
             self.assertTrue(status["bootstrapped"])
-            self.assertEqual(status["counts"]["categorized"], 4)
-            self.assertEqual(status["counts"]["uncategorized"], 3)
+            self.assertEqual(status["counts"]["categorized"], 7)
+            self.assertEqual(status["counts"]["uncategorized"], 0)
             self.assertEqual(status["counts"]["stale"], 0)
             self.assertEqual(len(status["skills"]), 7)
 
@@ -176,6 +175,18 @@ class TestCLI(unittest.TestCase):
             proc = _cli("bootstrap", stdin_text=payload)
             self.assertEqual(proc.returncode, 3)
             self.assertIn("no-such-skill", proc.stderr)
+            self.assertFalse(atlas_paths.categories_path().exists())
+
+    def test_bootstrap_rejects_partial_coverage(self):
+        # Every skill must be categorized — incomplete coverage is an error,
+        # not a warning, and nothing is written.
+        with helpers.EnvSandbox(copy_fixtures=True):
+            _build_global()
+            proc = _cli("bootstrap",
+                        stdin_text=self._bootstrap_payload(helpers.ASSIGNED))
+            self.assertEqual(proc.returncode, 3)
+            self.assertIn("must cover every registered skill", proc.stderr)
+            self.assertIn("graphify", proc.stderr)
             self.assertFalse(atlas_paths.categories_path().exists())
 
     def test_assign_flow(self):

@@ -23,9 +23,11 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - a product gets its own category only when it dominates the collection;
    - do NOT enumerate product/tool words in the description — the build derives
      token lists from membership automatically.
-   Assign every skill to one or more categories, ordered (first entry is its
-   display home). Then write it in one call — on exit 3, fix exactly what
-   stderr names and retry:
+   Assign EVERY skill to one or more categories, ordered (first entry is its
+   display home) — full coverage is mandatory and the CLI rejects a bootstrap
+   that leaves any skill unassigned; if nothing fits a skill, the taxonomy is
+   missing a category, so create it. Then write it in one call — on exit 3,
+   fix exactly what stderr names and retry:
 
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" bootstrap <<'EOF'
@@ -46,6 +48,9 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - For every id in `stale`: re-read its current description. Labels still
      right → batch into `categorize.py confirm <id> <id> …`. Wrong → include in
      the `assign` payload with new labels.
+   - **A run must end with zero uncategorized skills.** After step 3, if the
+     rebuilt graph still reports uncategorized > 0, something was missed — go
+     back and assign it.
 
 3. Rerun `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_graph.py"`, then
    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"`.

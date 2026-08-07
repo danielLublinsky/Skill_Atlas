@@ -193,6 +193,14 @@ def cmd_bootstrap(args) -> int:
     descriptions = _descriptions(graph)
     raw = _payload_assignments(payload, atlas_categories.taxonomy_names(probe),
                                set(descriptions))
+    # Full coverage is a hard requirement: every registered skill must be
+    # categorized. If nothing fits, the taxonomy is missing a category —
+    # add one; never leave a skill out.
+    missing = sorted(set(descriptions) - set(raw))
+    if missing:
+        return _fail(["assignments must cover every registered skill; missing: "
+                      + ", ".join(missing),
+                      "every skill must be categorized — add a category if nothing fits"])
 
     today = _today()
     obj = {
@@ -213,10 +221,6 @@ def cmd_bootstrap(args) -> int:
 
     if not 8 <= len(obj["taxonomy"]) <= 12:
         _warn([f"{len(obj['taxonomy'])} categories — the design target is 8–12"])
-    unassigned = sorted(set(descriptions) - set(raw))
-    if unassigned:
-        _warn([f"{len(unassigned)} registered skill(s) left uncategorized: "
-               + ", ".join(unassigned)])
     _print_category_counts(obj)
     print(f"bootstrapped: {len(obj['taxonomy'])} categories, "
           f"{len(raw)}/{len(descriptions)} skills assigned")
@@ -322,6 +326,11 @@ def cmd_import(args) -> int:
         # skills that left the graph — surfaced, never rejected.
         _warn([f"{len(orphans)} assignment(s) for skills not in the graph: "
                + ", ".join(orphans)])
+    uncovered = sorted(known - set(obj.get("assignments", {})))
+    if uncovered:
+        _warn([f"{len(uncovered)} registered skill(s) not covered: "
+               + ", ".join(uncovered)
+               + " — every skill must be categorized; run /skill-atlas"])
     atlas_categories.write_categories(obj)
     print(f"imported: {len(obj['taxonomy'])} categories, "
           f"{len(obj['assignments'])} assignments")

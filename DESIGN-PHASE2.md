@@ -38,7 +38,14 @@ and these amendments override it where they conflict.
 5. **The frozen taxonomy rides in graph.json** (top-level `taxonomy` key, v3). The stage-1
    index needs the curated category descriptions; carrying them in the graph keeps shard
    emission and the category view single-source (graph.json only), as §5 intended.
-6. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
+6. **Full coverage is mandatory (2026-08-07, user decision).** Every registered skill must be
+   categorized: `categorize.py bootstrap` rejects incomplete coverage (exit 3, missing ids
+   named, nothing written), and a `/skill-atlas` run must end with zero uncategorized skills —
+   when nothing fits, the taxonomy is missing a category and the model adds one. The
+   uncategorized bucket, shard and index-line nag remain, but strictly as the *transitional*
+   state for skills installed between runs (the model-free build cannot label them) and for
+   degraded configurations — never as an acceptable end state of a run.
+7. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
    `_index.md` ≈ 650 tokens (above the §5 estimate — the derived token lists are what grew it),
    shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one
    shard ≈ 1.2–1.7k tokens, versus ~5k+ for a flat catalog read — the §5 arbitrage holds. The

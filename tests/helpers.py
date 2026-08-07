@@ -94,6 +94,14 @@ ASSIGNED = {
     "beta:x": ["eng"],
 }
 
+# Full coverage of the global-view fixture collection (7 skills, bare
+# user-skill ids). Bootstrap REQUIRES full coverage; the partial ASSIGNED
+# above stays for direct-write build tests, where uncategorized is the
+# legitimate transitional state.
+ASSIGNED_ALL = dict(ASSIGNED)
+ASSIGNED_ALL.update({"graphify": ["docs"], "beta:y": ["eng"],
+                     "linked-skill": ["eng"]})
+
 
 def approved_categories(cwd=None, assigned=None, taxonomy=None) -> dict:
     """A valid, bootstrapped categories.json for the fixture tree, with

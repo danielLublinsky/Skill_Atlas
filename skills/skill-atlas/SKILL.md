@@ -40,15 +40,19 @@ violation; fix and retry.
   one-line descriptions (user-intent task shapes; name the boundary between
   confusable categories; a product earns a category only when it dominates;
   never enumerate product words — the build derives token lists from
-  membership), assign every skill (ordered list, first = display home), and
-  pipe `{"taxonomy": [...], "assignments": {id: [labels]}}` into
+  membership), assign EVERY skill (ordered list, first = display home; the
+  CLI rejects incomplete coverage — if nothing fits, the taxonomy is missing
+  a category, so create it), and pipe
+  `{"taxonomy": [...], "assignments": {id: [labels]}}` into
   `categorize.py bootstrap` via heredoc.
 - **`bootstrapped: true`** → the taxonomy is frozen. Batch-assign the
   `uncategorized` list into it with `categorize.py assign`; when nothing
   fits, `categorize.py add-category <name> "<desc>"` then assign — and call
   the addition out prominently in the report. For `stale` entries re-read
   the description: labels still right → `categorize.py confirm <ids…>`,
-  wrong → reassign. Never touch unchanged skills.
+  wrong → reassign. Never touch unchanged skills. **A run must end with
+  zero uncategorized skills** — uncategorized is a transitional state
+  between runs, never an acceptable end state.
 
 ## Interpreting exit codes
 

@@ -34,10 +34,7 @@ def _categories():
     return json.loads(atlas_paths.categories_path().read_text(encoding="utf-8"))
 
 
-# The full global-view fixture collection (7 skills; bare user-skill ids).
-FULL_ASSIGNMENTS = dict(helpers.ASSIGNED)
-FULL_ASSIGNMENTS.update({"graphify": ["docs"], "beta:y": ["eng"],
-                         "linked-skill": ["eng"]})
+FULL_ASSIGNMENTS = helpers.ASSIGNED_ALL
 
 
 class TestCategorizationFlow(unittest.TestCase):
