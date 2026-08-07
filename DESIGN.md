@@ -518,7 +518,9 @@ Cluster by scope. Orphan skills (degree 0) pinned to a labelled gutter rather th
   growing: at 4.5px a size change is unreadable, and a moving radius would shift the layout
   it sits in.
 - search box → filter by name/description, live
-- toggles: hide files, hide `mentions` edges, show dangling only, show unregistered
+- toggles: hide files, hide `mentions` edges, show dangling only, show unregistered — behind a
+  `filters` dropdown alongside the `plugins` one, with the count of active filters on the
+  summary, since a hidden checkbox that silently reshapes the graph is worse than no checkbox
 - legend, always visible, anchored top-right and never moved by anything else on the canvas —
   it is the key to the picture, so it has to be findable in the same place every time. It
   carries scope, state, edges and catalog; the shape rows are dropped (rect-vs-dot is

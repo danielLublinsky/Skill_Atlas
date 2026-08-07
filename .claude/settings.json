@@ -18,7 +18,11 @@
       "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p5.html)",
       "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p6.html)",
       "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --screenshot=v5_final.png file://__TRACKED_VAR__/atlas_preview.html)",
-      "Bash(magick v5_final.png -crop 620x520+980+40 +repage crop_legend.png)"
+      "Bash(magick v5_final.png -crop 620x520+980+40 +repage crop_legend.png)",
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --screenshot=v7.png file://__TRACKED_VAR__/atlas_preview.html)",
+      "Bash(magick v7.png -crop 900x120+350+0 +repage -resize 150% crop_tabs.png)",
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p7.html)",
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p8.html)"
     ]
   }
 }

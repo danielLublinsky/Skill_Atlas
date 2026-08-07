@@ -442,9 +442,10 @@ to it as a connected node.**
   existing toggle brings them back); the category view is about finding and comparing skills,
   not auditing their bundles.
 - **Scope view survives as the first tab** — the Phase 1 clustering (user / project / plugin)
-  remains for structural questions; the two views are tabs at the head of the control strip,
-  not a checkbox among the filters: swapping the whole picture is a different act from
-  subtracting from it.
+  remains for structural questions. The two views are tabs centred on the control bar, not a
+  checkbox queued among the filters: swapping the whole picture is a different act from
+  subtracting from it, and it only reads as the page's primary control if it sits apart from
+  the filters — which have since moved behind a dropdown of their own.
 - Hub-and-spoke also helps at scale: hubs anchor the layout, so the 200–600 node band
   (DESIGN.md §7.4) stays legible longer than free force-directed clustering does.
 

@@ -73,11 +73,13 @@
   :focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 1px; }
 
   header {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    position: relative;
+    display: flex; align-items: center; gap: 14px;
     padding: 10px 16px; border-bottom: 1px solid var(--baseline);
     background: var(--surface-1);
     box-shadow: 0 1px 0 var(--border);
   }
+  header .right { margin-left: auto; }
   header h1 {
     font-size: 16px; margin: 0 6px 0 0; font-weight: 700; font-family: var(--mono);
     letter-spacing: 0.06em;
@@ -92,51 +94,51 @@
     font: inherit;
   }
   header input[type="search"]::placeholder { color: var(--text-muted); }
-  header label.toggle {
-    display: inline-flex; align-items: center; gap: 5px;
-    color: var(--text-secondary); cursor: pointer; user-select: none;
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
-  }
   header input[type="checkbox"] { accent-color: var(--text-secondary); }
-  header label.toggle:has(input:disabled) { opacity: 0.35; cursor: default; }
-  header select {
-    padding: 3px 6px; border: 1px solid var(--baseline); border-radius: 2px;
-    background: var(--plane); color: var(--text-primary); font: inherit;
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
-  }
   header button {
     padding: 3px 10px; border: 1px solid var(--baseline); border-radius: 2px;
     background: var(--plane); color: var(--text-secondary); cursor: pointer;
     font: inherit; font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  header button:hover, #plugin-filter > summary:hover { color: var(--text-primary); }
-  /* view tabs: scope | categories — the primary switch, not a filter */
-  #tabs { display: inline-flex; border: 1px solid var(--baseline); border-radius: 2px;
-    overflow: hidden; }
+  header button:hover, .menu > summary:hover { color: var(--text-primary); }
+  /* view tabs: scope | categories — the primary switch, not a filter, so it
+     is centred on the whole bar rather than queued in the control strip.
+     Absolute centring keeps it on the bar's midline whatever the widths of
+     the groups either side */
+  #tabs {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: inline-flex; overflow: hidden;
+    border: 1px solid var(--baseline); border-radius: 2px;
+  }
   #tabs .tab {
-    padding: 3px 12px; border: 0; border-right: 1px solid var(--baseline);
-    border-radius: 0; background: var(--plane); color: var(--text-muted);
-    font: inherit; font-size: 11px; text-transform: uppercase;
-    letter-spacing: 0.04em; cursor: pointer;
+    padding: 6px 22px; border: 0; border-right: 1px solid var(--baseline);
+    border-radius: 0; background: transparent; color: var(--text-muted);
+    font: inherit; font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; cursor: pointer;
   }
   #tabs .tab:last-child { border-right: 0; }
   #tabs .tab:hover { color: var(--text-primary); }
   #tabs .tab[aria-selected="true"] {
-    background: var(--surface-1); color: var(--text-primary);
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 7%, var(--surface-1));
     box-shadow: inset 0 -2px 0 var(--text-primary);
   }
-  #plugin-filter { position: relative; }
-  #plugin-filter > summary {
+  /* dropdown menus: filters and plugins, same shape */
+  .menu { position: relative; }
+  .menu > summary {
     list-style: none; cursor: pointer; user-select: none;
     padding: 3px 10px; border: 1px solid var(--baseline); border-radius: 2px;
     background: var(--plane); color: var(--text-secondary);
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
   }
-  #plugin-filter > summary::-webkit-details-marker { display: none; }
-  #plugin-filter[open] > summary { color: var(--text-primary); }
-  #plugin-menu {
-    position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu[open] > summary { color: var(--text-primary); }
+  /* every filter inside is meaningless in category view — the whole menu
+     goes quiet rather than opening onto four dead checkboxes */
+  .menu.off > summary { opacity: 0.35; pointer-events: none; }
+  .menu-body {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 30;
     min-width: 220px; max-height: 320px; overflow-y: auto;
     background: var(--surface-1); border: 1px solid var(--baseline);
     outline: 1px solid var(--border); outline-offset: 2px;
@@ -146,11 +148,13 @@
     padding-bottom: 6px; border-bottom: 1px solid var(--grid); }
   #plugin-menu .quick a { color: var(--text-muted); cursor: pointer;
     font-size: 11px; text-decoration: underline; }
-  #plugin-menu label { display: flex; align-items: center; gap: 6px;
+  .menu-body label { display: flex; align-items: center; gap: 6px;
     padding: 2px 0; color: var(--text-secondary); cursor: pointer;
     white-space: nowrap; }
+  .menu-body label:has(input:disabled) { opacity: 0.35; cursor: default; }
   #plugin-menu .count { color: var(--text-muted); font-size: 11px;
     margin-left: auto; padding-left: 10px; }
+  #filter-menu { min-width: 190px; }
   #stage { position: relative; flex: 1; overflow: hidden; background: var(--surface-1); }
   #canvas { width: 100%; height: 100%; display: block; cursor: grab; }
   #canvas:active { cursor: grabbing; }
@@ -240,18 +244,23 @@
 <body>
 <header>
   <h1>SKILL·ATLAS<span class="cursor">▊</span></h1>
+  <input id="search" type="search" placeholder="filter skills…">
   <div id="tabs" role="tablist" aria-label="view">
     <button class="tab" role="tab" data-view="scope" aria-selected="true">scope</button>
     <button class="tab" role="tab" data-view="category" aria-selected="false">categories</button>
   </div>
-  <input id="search" type="search" placeholder="filter skills…">
-  <label class="toggle"><input type="checkbox" id="t-files"> hide files</label>
-  <label class="toggle"><input type="checkbox" id="t-mentions"> hide mentions</label>
-  <label class="toggle"><input type="checkbox" id="t-dangling"> dangling only</label>
-  <label class="toggle"><input type="checkbox" id="t-unregistered"> show unregistered</label>
-  <details id="plugin-filter">
+  <details id="filter-filter" class="menu right">
+    <summary id="filter-summary">filters ▾</summary>
+    <div id="filter-menu" class="menu-body">
+      <label><input type="checkbox" id="t-files"> hide files</label>
+      <label><input type="checkbox" id="t-mentions"> hide mentions</label>
+      <label><input type="checkbox" id="t-dangling"> dangling only</label>
+      <label><input type="checkbox" id="t-unregistered"> show unregistered</label>
+    </div>
+  </details>
+  <details id="plugin-filter" class="menu">
     <summary id="plugin-summary">plugins ▾</summary>
-    <div id="plugin-menu"></div>
+    <div id="plugin-menu" class="menu-body"></div>
   </details>
   <button id="theme">theme</button>
 </header>
@@ -349,11 +358,21 @@ const structuralToggles = [ctl.files, ctl.mentions, ctl.dangling, ctl.unregister
     viewMode = btn.dataset.view;
     bar.querySelectorAll(".tab").forEach(b =>
       b.setAttribute("aria-selected", String(b.dataset.view === viewMode)));
-    /* the structural toggles have no meaning in category view — grey them out */
+    /* the structural filters have no meaning in category view — the whole
+       menu goes quiet, not just the boxes inside it */
+    const wrap = document.getElementById("filter-filter");
     structuralToggles.forEach(c => { c.disabled = isCategoryView(); });
+    wrap.classList.toggle("off", isCategoryView());
+    if (isCategoryView()) wrap.open = false;
     drawGraph();
   });
 })();
+/* the boxes live behind a summary now, so their state has to read from it */
+function summarizeFilters() {
+  const on = structuralToggles.filter(c => c.checked).length;
+  document.getElementById("filter-summary").textContent =
+    on ? `filters ${on} ▾` : "filters ▾";
+}
 /* the frozen taxonomy travels in graph.json (v3) — hub tooltips read it */
 const CATEGORY_DESC = new Map((GRAPH.taxonomy || []).map(t => [t.name, t.description]));
 if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
@@ -393,11 +412,22 @@ if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
     menu.querySelectorAll("input").forEach(b => { b.checked = ev.target.dataset.all === "1"; });
     summarize(); drawGraph();
   });
-  document.addEventListener("click", ev => {
-    const details = document.getElementById("plugin-filter");
-    if (details.open && !details.contains(ev.target)) details.open = false;
-  });
 })();
+/* one handler for every dropdown: clicking outside closes it, and only one
+   is ever open — two overlapping panels in the same corner is a mess */
+document.addEventListener("click", ev => {
+  document.querySelectorAll("details.menu[open]").forEach(d => {
+    if (!d.contains(ev.target)) d.open = false;
+  });
+});
+document.querySelectorAll("details.menu").forEach(d => {
+  d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    document.querySelectorAll("details.menu[open]").forEach(o => {
+      if (o !== d) o.open = false;
+    });
+  });
+});
 function activeGroups() {
   return new Set([...document.querySelectorAll("#plugin-menu input:checked")]
     .map(b => b.value));
@@ -842,7 +872,9 @@ if (useTable) {
 } else {
   drawGraph();
 }
-structuralToggles.forEach(c => c.addEventListener("change", drawGraph));
+structuralToggles.forEach(c =>
+  c.addEventListener("change", () => { summarizeFilters(); drawGraph(); }));
+summarizeFilters();   /* the >200-node default checks "hide files" for us */
 window.addEventListener("resize", () => { if (!useTable) drawGraph(); });
 </script>
 </body>
