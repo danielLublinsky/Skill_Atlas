@@ -53,6 +53,10 @@ violation; fix and retry.
   wrong → reassign. Never touch unchanged skills. **A run must end with
   zero uncategorized skills** — uncategorized is a transitional state
   between runs, never an acceptable end state.
+- **Project skills are categorized too.** categorize.py follows the view
+  automatically: run from a project directory it operates on that
+  project's graph, so project-scope skills and collision-renamed ids
+  (`name@user` / `name@project`) are assigned like any other skill.
 
 ## Interpreting exit codes
 

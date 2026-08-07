@@ -50,7 +50,15 @@ and these amendments override it where they conflict.
    uncategorized bucket, shard and index-line nag remain, but strictly as the *transitional*
    state for skills installed between runs (the model-free build cannot label them) and for
    degraded configurations — never as an acceptable end state of a run.
-7. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
+7. **Project skills are categorized too (2026-08-07, user decision).** `categorize.py` is
+   view-aware: run from a project directory it operates on that project's graph, so
+   project-scope skills and collision-renamed ids (`name@user` / `name@project`) get
+   assignments in the same global categories.json. Such assignments carry an optional
+   `"project": true` marker meaning *view-local*: the global build skips them (and bare names
+   shadowed by a collision rename) when computing `orphan_assignments`, so cross-view noise
+   never reads as environmental drift. Coverage stays per-view: each view's uncategorized
+   count nudges a `/skill-atlas` run from the place that can see those skills.
+8. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
    `_index.md` ≈ 650 tokens (above the §5 estimate — the derived token lists are what grew it),
    shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one
    shard ≈ 1.2–1.7k tokens, versus ~5k+ for a flat catalog read — the §5 arbitrage holds. The

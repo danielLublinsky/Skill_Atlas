@@ -10,15 +10,18 @@ import os
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 import helpers
 import atlas_paths
 import build_graph
 
 
-def _cli(*args, stdin_text=None):
+def _cli(*args, stdin_text=None, cwd=None):
+    neutral = str(Path(os.environ["SKILL_ATLAS_HOME"]).parent)
     return subprocess.run(
-        [sys.executable, str(helpers.SCRIPTS / "categorize.py"), *args],
+        [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
+         "--cwd", cwd or neutral, *args],
         input=stdin_text, capture_output=True, text=True, env=os.environ.copy())
 
 
@@ -79,6 +82,46 @@ class TestCategorizationFlow(unittest.TestCase):
                 self.assertEqual(json.dumps(after["assignments"][skill_id],
                                             sort_keys=True),
                                  json.dumps(entry, sort_keys=True))
+
+    def test_project_skills_categorized(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
+            proc = _cli("bootstrap", stdin_text=json.dumps(
+                {"taxonomy": helpers.TAXONOMY, "assignments": FULL_ASSIGNMENTS}))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
+
+            # The project view renames the colliding graphify pair and adds
+            # the project skill — both variants surface as uncategorized
+            # there, and the shadowed bare-name assignment is NOT an orphan.
+            status = json.loads(
+                _cli("status", cwd=str(sandbox.project_dir)).stdout)
+            self.assertEqual(status["view"], "project")
+            self.assertEqual([u["id"] for u in status["uncategorized"]],
+                             ["graphify@project", "graphify@user"])
+            self.assertEqual(status["orphan_assignments"], [])
+
+            proc = _cli("assign", cwd=str(sandbox.project_dir),
+                        stdin_text=json.dumps({"assignments": {
+                            "graphify@project": ["docs"],
+                            "graphify@user": ["docs"]}}))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            obj = _categories()
+            self.assertIs(obj["assignments"]["graphify@project"]["project"], True)
+            self.assertIs(obj["assignments"]["graphify@user"]["project"], True)
+
+            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
+            project_graph = json.loads(
+                atlas_paths.project_graph_path(sandbox.project_dir).read_text())
+            self.assertEqual(project_graph["stats"]["uncategorized"], 0)
+            self.assertEqual(project_graph["stats"]["orphan_assignments"], [])
+            node = next(n for n in project_graph["nodes"]
+                        if n["id"] == "graphify@project")
+            self.assertEqual(node["categories"], ["docs"])
+            # View-local entries are not orphans in the global view either.
+            global_graph = _graph()
+            self.assertEqual(global_graph["stats"]["orphan_assignments"], [])
+            self.assertEqual(global_graph["stats"]["uncategorized"], 0)
 
     def test_description_edit_goes_stale_then_confirmed(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:

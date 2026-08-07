@@ -20,6 +20,7 @@ the designed stale state (`confirm` refreshes them).
 import argparse
 import datetime
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -48,8 +49,13 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
-def _load_graph() -> dict:
-    path = atlas_paths.graph_path()
+def _load_graph(cwd=None) -> dict:
+    """The view this run categorizes: the project graph when cwd is a
+    project (so project skills and collision-renamed ids are covered too),
+    else the global graph — mirroring build_graph's view selection."""
+    cwd = cwd or os.getcwd()
+    path = (atlas_paths.project_graph_path(cwd) if atlas_paths.is_project(cwd)
+            else atlas_paths.graph_path())
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -63,8 +69,21 @@ def _registered(graph) -> list:
             if n.get("type") == "skill" and n.get("registered")]
 
 
+def _registered_map(graph) -> dict:
+    return {n["id"]: n for n in _registered(graph)}
+
+
 def _descriptions(graph) -> dict:
     return {n["id"]: n.get("description") for n in _registered(graph)}
+
+
+def _make_entry(node, labels, today) -> dict:
+    entry = {"categories": list(labels),
+             "desc_hash": atlas_categories.desc_hash(node.get("description")),
+             "assigned_at": today}
+    if node.get("scope") == "project" or node.get("duplicate"):
+        entry["project"] = True   # view-local: resolvable only in a project view
+    return entry
 
 
 def _tier(node) -> str:
@@ -133,7 +152,7 @@ def _payload_assignments(payload, taxonomy_labels, known_ids) -> dict:
 
 
 def cmd_status(args) -> int:
-    graph = _load_graph()
+    graph = _load_graph(args.cwd)
     categories, config = _load_curated()
     registered = _registered(graph)
     assignments = categories["assignments"]
@@ -150,6 +169,8 @@ def cmd_status(args) -> int:
                           "categories": entry["categories"], "tier": _tier(node)})
 
     out = {
+        "view": graph.get("view", "global"),
+        "project": graph.get("project"),
         "bootstrapped": atlas_categories.is_bootstrapped(categories),
         "taxonomy_approved_at": categories.get("taxonomy_approved_at"),
         "taxonomy": categories["taxonomy"],
@@ -161,7 +182,9 @@ def cmd_status(args) -> int:
         },
         "uncategorized": uncategorized,
         "stale": stale,
-        "orphan_assignments": sorted(set(assignments) - known),
+        "orphan_assignments": atlas_categories.orphan_ids(
+            assignments, known,
+            graph.get("stats", {}).get("duplicate_names", [])),
         "config": config,
     }
     if args.full:
@@ -172,7 +195,7 @@ def cmd_status(args) -> int:
 
 
 def cmd_bootstrap(args) -> int:
-    graph = _load_graph()
+    graph = _load_graph(args.cwd)
     categories, _ = _load_curated()
     if atlas_categories.is_bootstrapped(categories):
         return _fail([f"already bootstrapped ({categories['taxonomy_approved_at']}) — "
@@ -203,14 +226,13 @@ def cmd_bootstrap(args) -> int:
                       "every skill must be categorized — add a category if nothing fits"])
 
     today = _today()
+    registered_by_id = _registered_map(graph)
     obj = {
         "version": 1,
         "taxonomy_approved_at": today,
         "taxonomy": taxonomy,
         "assignments": {
-            skill_id: {"categories": labels_for,
-                       "desc_hash": atlas_categories.desc_hash(descriptions[skill_id]),
-                       "assigned_at": today}
+            skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
             for skill_id, labels_for in raw.items()
         },
     }
@@ -243,20 +265,17 @@ def _require_bootstrapped(categories) -> None:
 
 
 def cmd_assign(args) -> int:
-    graph = _load_graph()
+    graph = _load_graph(args.cwd)
     categories, _ = _load_curated()
     _require_bootstrapped(categories)
     payload = _read_stdin_payload()
-    descriptions = _descriptions(graph)
+    registered_by_id = _registered_map(graph)
     raw = _payload_assignments(payload, atlas_categories.taxonomy_names(categories),
-                               set(descriptions))
+                               set(registered_by_id))
     today = _today()
     for skill_id, labels_for in raw.items():
-        categories["assignments"][skill_id] = {
-            "categories": labels_for,
-            "desc_hash": atlas_categories.desc_hash(descriptions[skill_id]),
-            "assigned_at": today,
-        }
+        categories["assignments"][skill_id] = _make_entry(
+            registered_by_id[skill_id], labels_for, today)
     # known_ids deliberately omitted: pre-existing orphan assignments
     # (environmental drift) must never block an unrelated write.
     try:
@@ -268,7 +287,7 @@ def cmd_assign(args) -> int:
 
 
 def cmd_confirm(args) -> int:
-    graph = _load_graph()
+    graph = _load_graph(args.cwd)
     categories, _ = _load_curated()
     _require_bootstrapped(categories)
     descriptions = _descriptions(graph)
@@ -307,7 +326,7 @@ def cmd_add_category(args) -> int:
 
 
 def cmd_import(args) -> int:
-    graph = _load_graph()
+    graph = _load_graph(args.cwd)
     try:
         text = Path(args.path).read_text(encoding="utf-8")
     except OSError as exc:
@@ -345,7 +364,7 @@ def cmd_config(args) -> int:
         print(json.dumps(config, indent=2, sort_keys=True))
         return 0
     if args.add:
-        graph = _load_graph()
+        graph = _load_graph(args.cwd)
         known = set()
         for node in graph.get("nodes", []):
             if node.get("type") == "skill":
@@ -374,6 +393,9 @@ def cmd_config(args) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Validating writer for skill-atlas categorization state.")
+    parser.add_argument("--cwd", default=None,
+                        help="view selector: a project directory categorizes that "
+                             "project's view (default: current directory)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("status", help="machine-readable categorization state")

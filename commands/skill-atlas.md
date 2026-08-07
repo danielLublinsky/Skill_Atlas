@@ -51,6 +51,12 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - **A run must end with zero uncategorized skills.** After step 3, if the
      rebuilt graph still reports uncategorized > 0, something was missed — go
      back and assign it.
+   - **Project skills are categorized too.** categorize.py follows the view
+     automatically: run from inside a project it operates on that project's
+     graph, so project-scope skills and collision-renamed ids
+     (`name@user` / `name@project`) appear in `uncategorized` and are assigned
+     like any other skill. When the project view reports uncategorized skills,
+     categorize them in the same run.
 
 3. Rerun `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_graph.py"`, then
    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"`.

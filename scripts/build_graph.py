@@ -168,7 +168,10 @@ def build(cwd=None) -> tuple:
              + [dangling_nodes[k] for k in sorted(dangling_nodes)]
              + [file_nodes[k] for k in sorted(file_nodes)])
 
-    orphan_assignments = sorted(set(assignments) - {s["id"] for s in skills})
+    # View-local (project-marked) assignments and names shadowed by a
+    # collision rename are resolvable elsewhere — not environmental drift.
+    orphan_assignments = atlas_categories.orphan_ids(
+        assignments, {s["id"] for s in skills}, discovery["duplicate_names"])
     # The search-facing rollup covers tiers 1+2 only (enabled or searchable);
     # tier-off skills are never search-visible. Zero-count categories are
     # kept: the frozen taxonomy is a stable index shape.

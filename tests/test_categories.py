@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 import helpers
 import atlas_categories
@@ -16,9 +17,14 @@ def _build_global():
     return build_graph.main(["--global-only", "--quiet", "--cwd", os.getcwd()])
 
 
-def _cli(*args, stdin_text=None):
+def _cli(*args, stdin_text=None, cwd=None):
+    # Explicit --cwd always: categorize.py follows the view from cwd, and
+    # the test runner's own cwd (this repo) is itself a project. The
+    # sandbox tmp dir is the neutral non-project → global view.
+    neutral = str(Path(os.environ["SKILL_ATLAS_HOME"]).parent)
     return subprocess.run(
-        [sys.executable, str(helpers.SCRIPTS / "categorize.py"), *args],
+        [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
+         "--cwd", cwd or neutral, *args],
         input=stdin_text, capture_output=True, text=True, env=os.environ.copy())
 
 
@@ -84,6 +90,12 @@ class TestValidation(unittest.TestCase):
         obj["assignments"]["a"] = {"categories": ["eng"], "desc_hash": good_hash,
                                    "assigned_at": "2026-08-07", "extra": 1}
         self.assertTrue(any("unknown key 'extra'" in e for e in errors_of(obj)))
+
+        obj = base()
+        obj["assignments"]["a"] = {"categories": ["eng"], "desc_hash": good_hash,
+                                   "assigned_at": "2026-08-07", "project": "yes"}
+        self.assertTrue(any("project, when present, must be true" in e
+                            for e in errors_of(obj)))
 
         obj = base()
         obj["assignments"]["ghost"] = {"categories": ["eng"], "desc_hash": good_hash,

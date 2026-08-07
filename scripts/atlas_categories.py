@@ -26,7 +26,12 @@ HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 RESERVED_NAMES = ("uncategorized",)
 
 _CATEGORIES_KEYS = {"version", "taxonomy", "taxonomy_approved_at", "assignments"}
-_ASSIGNMENT_KEYS = {"categories", "desc_hash", "assigned_at"}
+# "project" (optional, literal true) marks a view-local assignment: a
+# project-scope skill or a collision-renamed id (name@user / name@project)
+# that only resolves inside a project view — the global view must not
+# report it as an orphan.
+_ASSIGNMENT_REQUIRED = {"categories", "desc_hash", "assigned_at"}
+_ASSIGNMENT_KEYS = _ASSIGNMENT_REQUIRED | {"project"}
 _CONFIG_KEYS = {"version", "searchable_plugins"}
 
 
@@ -119,7 +124,7 @@ def validate_categories(obj, known_ids=None) -> list:
         if not isinstance(entry, dict):
             errors.append(f"{where}: expected an object")
             continue
-        for key in sorted(_ASSIGNMENT_KEYS - set(entry)):
+        for key in sorted(_ASSIGNMENT_REQUIRED - set(entry)):
             errors.append(f"{where}: missing key {key!r}")
         for key in sorted(set(entry) - _ASSIGNMENT_KEYS):
             errors.append(f"{where}: unknown key {key!r}")
@@ -145,7 +150,21 @@ def validate_categories(obj, known_ids=None) -> list:
         if "assigned_at" in entry and (not isinstance(assigned_at, str)
                                        or not assigned_at.strip()):
             errors.append(f"{where}: assigned_at must be a non-empty string")
+        if "project" in entry and entry.get("project") is not True:
+            errors.append(f"{where}: project, when present, must be true")
     return errors
+
+
+def orphan_ids(assignments, view_ids, duplicate_names=()) -> list:
+    """Assignments this view cannot resolve AND should worry about:
+    view-local (project-marked) entries belong to some project view, and a
+    bare name shadowed by a collision rename in this view is not gone —
+    neither is environmental drift."""
+    dupes = set(duplicate_names)
+    return sorted(skill_id for skill_id, entry in assignments.items()
+                  if skill_id not in view_ids
+                  and not (isinstance(entry, dict) and entry.get("project"))
+                  and skill_id not in dupes)
 
 
 def validate_config(obj) -> list:
