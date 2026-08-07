@@ -505,19 +505,24 @@ Cluster by scope. Orphan skills (degree 0) pinned to a labelled gutter rather th
 
 ### 7.3 Interaction
 
-- hover → tooltip: id, description, path, plugin + version, enabled state. It parks in the
-  bottom-right corner rather than trailing the cursor: a panel that follows the mouse covers
-  the neighbourhood you hovered to inspect, and its text moves while you read it.
-- click → pin node, highlight 1-hop neighbourhood, dim the rest. The incident edges are
-  actively highlighted (thicker, full contrast), not merely spared the dimming — which edges
-  connect is the answer being looked for, and broken edges keep their red under the highlight.
-  Neighbouring file dots brighten and gain a ring rather than growing: at 4.5px a size change
-  is unreadable, and a moving radius would shift the layout it sits in.
+- hover → tooltip: id, description, path, plugin + version, enabled state. It parks immediately
+  left of the legend rather than trailing the cursor: a panel that follows the mouse covers the
+  neighbourhood you hovered to inspect, and its text moves while you read it.
+- click → pin node, highlight 1-hop neighbourhood, dim the rest. The whole reading freezes:
+  the tooltip holds the clicked node and stays put once the cursor leaves, so a long
+  description can actually be read and hovering elsewhere cannot desynchronise the panel from
+  the highlight. Click the node again, or the background, to release.
+- The incident edges are actively highlighted (thicker, full contrast), not merely spared the
+  dimming — which edges connect is the answer being looked for, and broken edges keep their
+  red under the highlight. Neighbouring file dots brighten and gain a ring rather than
+  growing: at 4.5px a size change is unreadable, and a moving radius would shift the layout
+  it sits in.
 - search box → filter by name/description, live
 - toggles: hide files, hide `mentions` edges, show dangling only, show unregistered
-- legend, top-right, collapsible — reference material earns its space while you learn the
-  encoding and gets in the way afterwards. It carries scope, state, edges and catalog; the
-  shape row is dropped, since rect-vs-dot is self-evident at a glance and cost a section.
+- legend, always visible, anchored top-right and never moved by anything else on the canvas —
+  it is the key to the picture, so it has to be findable in the same place every time. It
+  carries scope, state, edges and catalog; the shape rows are dropped (rect-vs-dot is
+  self-evident) and so is the plugin-tag row.
 - footer: view (global / project name), generated timestamp, node and defect counts, staleness
   warning if `graph.json` is older than the newest SKILL.md **or manifest**
 
