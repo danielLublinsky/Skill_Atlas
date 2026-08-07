@@ -1,0 +1,9 @@
+{
+  "name": "alpha",
+  "version": "1.0.0",
+  "description": "Fixture plugin with an explicit skills allowlist and a deprecated tree.",
+  "skills": [
+    "./skills/eng/one",
+    "./skills/eng/two"
+  ]
+}

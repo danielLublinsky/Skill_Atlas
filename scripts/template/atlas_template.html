@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root {
+    color-scheme: light;
+    /* aged paper */
+    --surface-1: #faf8f0;
+    --plane: #f1eee3;
+    --text-primary: #16150f;
+    --text-secondary: #4f4e44;
+    --text-muted: #8a8578;
+    --grid: #ded9c8;
+    --baseline: #b4ae99;
+    --border: rgba(22,21,15,0.16);
+    --scope-user: #2a78d6;
+    --scope-project: #eb6834;
+    --scope-plugin: #1baf7a;
+    --critical: #d03b3b;
+    --mono: "Berkeley Mono", ui-monospace, "SF Mono", "Cascadia Mono",
+            "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      /* phosphor-dark */
+      --surface-1: #191b17;
+      --plane: #0e100d;
+      --text-primary: #f2f4ec;
+      --text-secondary: #c0c2b4;
+      --text-muted: #85887a;
+      --grid: #2b2e27;
+      --baseline: #3d4037;
+      --border: rgba(242,244,236,0.14);
+      --scope-user: #3987e5;
+      --scope-project: #d95926;
+      --scope-plugin: #199e70;
+      --critical: #d03b3b;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #191b17;
+    --plane: #0e100d;
+    --text-primary: #f2f4ec;
+    --text-secondary: #c0c2b4;
+    --text-muted: #85887a;
+    --grid: #2b2e27;
+    --baseline: #3d4037;
+    --border: rgba(242,244,236,0.14);
+    --scope-user: #3987e5;
+    --scope-project: #d95926;
+    --scope-plugin: #199e70;
+    --critical: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 12.5px/1.5 var(--mono);
+    color: var(--text-primary);
+    background: var(--plane);
+    display: flex; flex-direction: column;
+  }
+  :focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 1px; }
+
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--baseline);
+    background: var(--surface-1);
+    box-shadow: 0 1px 0 var(--border);
+  }
+  header h1 {
+    font-size: 16px; margin: 0 6px 0 0; font-weight: 700; font-family: var(--mono);
+    letter-spacing: 0.06em;
+  }
+  h1 .cursor { animation: blink 1.1s steps(1) infinite; font-weight: 400; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { h1 .cursor { animation: none; } }
+
+  header input[type="search"] {
+    width: 220px; padding: 4px 8px; border: 1px solid var(--baseline);
+    border-radius: 2px; background: var(--plane); color: var(--text-primary);
+    font: inherit;
+  }
+  header input[type="search"]::placeholder { color: var(--text-muted); }
+  header label.toggle {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text-secondary); cursor: pointer; user-select: none;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  header input[type="checkbox"] { accent-color: var(--text-secondary); }
+  header select {
+    padding: 3px 6px; border: 1px solid var(--baseline); border-radius: 2px;
+    background: var(--plane); color: var(--text-primary); font: inherit;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  header button {
+    padding: 3px 10px; border: 1px solid var(--baseline); border-radius: 2px;
+    background: var(--plane); color: var(--text-secondary); cursor: pointer;
+    font: inherit; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  header button:hover, #plugin-filter > summary:hover { color: var(--text-primary); }
+  #plugin-filter { position: relative; }
+  #plugin-filter > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    padding: 3px 10px; border: 1px solid var(--baseline); border-radius: 2px;
+    background: var(--plane); color: var(--text-secondary);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  #plugin-filter > summary::-webkit-details-marker { display: none; }
+  #plugin-filter[open] > summary { color: var(--text-primary); }
+  #plugin-menu {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+    min-width: 220px; max-height: 320px; overflow-y: auto;
+    background: var(--surface-1); border: 1px solid var(--baseline);
+    outline: 1px solid var(--border); outline-offset: 2px;
+    border-radius: 2px; padding: 8px 10px; box-shadow: 0 3px 0 var(--border);
+  }
+  #plugin-menu .quick { display: flex; gap: 10px; margin-bottom: 6px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--grid); }
+  #plugin-menu .quick a { color: var(--text-muted); cursor: pointer;
+    font-size: 11px; text-decoration: underline; }
+  #plugin-menu label { display: flex; align-items: center; gap: 6px;
+    padding: 2px 0; color: var(--text-secondary); cursor: pointer;
+    white-space: nowrap; }
+  #plugin-menu .count { color: var(--text-muted); font-size: 11px;
+    margin-left: auto; padding-left: 10px; }
+  #stage { position: relative; flex: 1; overflow: hidden; background: var(--surface-1); }
+  #canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+  #canvas:active { cursor: grabbing; }
+
+  #legend {
+    position: absolute; top: 14px; right: 14px; width: 236px;
+    background: var(--surface-1); border: 1px solid var(--baseline);
+    outline: 1px solid var(--border); outline-offset: 2px;
+    border-radius: 2px; padding: 10px 12px; box-shadow: 0 3px 0 var(--border);
+    font-size: 12px;
+  }
+  #legend h2 {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--text-muted); margin: 10px 0 4px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #legend h2::after { content: ""; flex: 1; border-top: 1px solid var(--grid); }
+  #legend h2:first-child { margin-top: 0; }
+  #legend .row { display: flex; align-items: center; gap: 7px; margin: 3px 0;
+    color: var(--text-secondary); }
+  .swatch { width: 18px; height: 11px; border-radius: 3px; flex: none; }
+  .swatch.circle { width: 9px; height: 9px; border-radius: 50%; margin: 0 4.5px; }
+  .edge-sample { width: 18px; height: 0; border-top: 2px solid var(--baseline); flex: none; }
+
+  #tooltip {
+    position: absolute; pointer-events: none; max-width: 340px; z-index: 10;
+    background: var(--surface-1); border: 1px solid var(--baseline);
+    outline: 1px solid var(--border); outline-offset: 2px;
+    border-radius: 2px; padding: 8px 10px; box-shadow: 0 3px 0 var(--border);
+    display: none; font-size: 11.5px; color: var(--text-secondary);
+    overflow-wrap: break-word;
+  }
+  #tooltip .tt-id { font-weight: 700; color: var(--text-primary); font-size: 12px; }
+  #tooltip .tt-path { color: var(--text-muted); font-size: 10.5px; }
+
+  footer {
+    display: flex; gap: 0; flex-wrap: wrap; align-items: center;
+    padding: 6px 16px; border-top: 1px solid var(--baseline);
+    background: var(--surface-1); color: var(--text-muted); font-size: 11px;
+  }
+  footer > span + span::before { content: "▸"; margin: 0 10px; color: var(--baseline); }
+  footer .warn { color: var(--critical); font-weight: 700; }
+
+  #tableview { display: none; flex: 1; overflow: auto; padding: 14px; }
+  #tableview table { border-collapse: collapse; width: 100%; background: var(--surface-1);
+    font-variant-numeric: tabular-nums; }
+  #tableview th, #tableview td { text-align: left; padding: 5px 10px;
+    border-bottom: 1px solid var(--grid); }
+  #tableview th { cursor: pointer; color: var(--text-secondary); position: sticky; top: 0;
+    background: var(--surface-1); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 6px; vertical-align: baseline; }
+
+  svg text.nodelabel { fill: var(--text-primary); font-size: 10px;
+    font-family: var(--mono); pointer-events: none; }
+  svg text.gutterlabel { fill: var(--text-muted); font-size: 9px;
+    font-family: var(--mono); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.18em; }
+  svg .dim { opacity: 0.14; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SKILL·ATLAS<span class="cursor">▊</span></h1>
+  <input id="search" type="search" placeholder="filter skills…">
+  <label class="toggle"><input type="checkbox" id="t-files"> hide files</label>
+  <label class="toggle"><input type="checkbox" id="t-mentions"> hide mentions</label>
+  <label class="toggle"><input type="checkbox" id="t-dangling"> dangling only</label>
+  <label class="toggle"><input type="checkbox" id="t-unregistered"> show unregistered</label>
+  <details id="plugin-filter">
+    <summary id="plugin-summary">plugins ▾</summary>
+    <div id="plugin-menu"></div>
+  </details>
+  <button id="theme">theme</button>
+</header>
+
+<div id="stage">
+  <svg id="canvas"></svg>
+  <div id="legend"></div>
+  <div id="tooltip"></div>
+</div>
+<div id="tableview"></div>
+
+<footer id="footer"></footer>
+
+<script id="atlas-data" type="application/json">__DATA_JSON__</script>
+<script>/*__D3__*/</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("atlas-data").textContent);
+const GRAPH = DATA.graph, META = DATA.meta;
+
+/* ---------- deterministic randomness: same graph, same picture ---------- */
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashCode(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/* ---------------------------- model building ---------------------------- */
+const SCOPE_COLOR = {
+  user: "var(--scope-user)", project: "var(--scope-project)",
+  plugin: "var(--scope-plugin)",
+};
+/* filter group of a primary skill node: its plugin, or its scope for
+   user/project skills */
+function groupOf(n) { return n.plugin || n.scope || "other"; }
+function groupLabel(g) {
+  return { user: "user skills", project: "project skills" }[g] || g;
+}
+function groupColor(g) {
+  return { user: SCOPE_COLOR.user, project: SCOPE_COLOR.project }[g] || SCOPE_COLOR.plugin;
+}
+
+const allNodes = GRAPH.nodes.map(n => Object.assign({}, n));
+GRAPH.unregistered_index.forEach((u, i) => {
+  allNodes.push({ id: "unreg:" + (u.plugin ? u.plugin + ":" : "") + u.name + "#" + i,
+    type: "skill", name: u.name, path: u.path, scope: u.scope || "plugin",
+    registered: false, enabled: false, dangling: true, unregDisplay: true });
+});
+const nodeById = new Map(allNodes.map(n => [n.id, n]));
+const allEdges = GRAPH.edges.filter(e => nodeById.has(e.source) && nodeById.has(e.target));
+const fileCount = new Map();
+allEdges.forEach(e => {
+  if (e.kind === "references") fileCount.set(e.source, (fileCount.get(e.source) || 0) + 1);
+});
+const skillTotal = allNodes.filter(n => n.type === "skill").length;
+const nodeTotal = allNodes.length;
+
+/* ------------------------------- controls ------------------------------- */
+const ctl = {
+  files: document.getElementById("t-files"),
+  mentions: document.getElementById("t-mentions"),
+  dangling: document.getElementById("t-dangling"),
+  unregistered: document.getElementById("t-unregistered"),
+  search: document.getElementById("search"),
+};
+if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
+
+(function fillPluginFilter() {
+  const groups = new Map();
+  allNodes.forEach(n => {
+    if (n.type !== "skill" || n.dangling || n.unregDisplay) return;
+    const g = groupOf(n);
+    groups.set(g, (groups.get(g) || 0) + 1);
+  });
+  const menu = document.getElementById("plugin-menu");
+  const quick = document.createElement("div");
+  quick.className = "quick";
+  quick.innerHTML = "<a data-all='1'>all</a><a data-all='0'>none</a>";
+  menu.appendChild(quick);
+  [...groups.keys()].sort().forEach(g => {
+    const label = document.createElement("label");
+    label.innerHTML =
+      `<input type="checkbox" value="${g}" checked>` +
+      `<span class="dot" style="background:${groupColor(g)};margin:0"></span>` +
+      `${groupLabel(g)}<span class="count">${groups.get(g)}</span>`;
+    menu.appendChild(label);
+  });
+  function summarize() {
+    const boxes = [...menu.querySelectorAll("input")];
+    const on = boxes.filter(b => b.checked).length;
+    document.getElementById("plugin-summary").textContent =
+      on === boxes.length ? "plugins ▾" : `plugins ${on}/${boxes.length} ▾`;
+  }
+  menu.addEventListener("change", () => { summarize(); drawGraph(); });
+  quick.addEventListener("click", ev => {
+    if (!ev.target.dataset.all) return;
+    menu.querySelectorAll("input").forEach(b => { b.checked = ev.target.dataset.all === "1"; });
+    summarize(); drawGraph();
+  });
+  document.addEventListener("click", ev => {
+    const details = document.getElementById("plugin-filter");
+    if (details.open && !details.contains(ev.target)) details.open = false;
+  });
+})();
+function activeGroups() {
+  return new Set([...document.querySelectorAll("#plugin-menu input:checked")]
+    .map(b => b.value));
+}
+
+document.getElementById("theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = getComputedStyle(root).colorScheme.includes("dark");
+  root.dataset.theme = dark ? "light" : "dark";
+});
+
+/* -------------------------------- legend -------------------------------- */
+(function legend() {
+  const el = document.getElementById("legend");
+  const scopeRows = ["user", "project", "plugin"].map(s =>
+    `<div class="row"><span class="swatch" style="background:${SCOPE_COLOR[s]}"></span>${s}</div>`).join("");
+  el.innerHTML = `
+    <h2>scope</h2>${scopeRows}
+    <h2>shape</h2>
+    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--text-muted)"></span>skill</div>
+    <div class="row"><span class="swatch circle" style="background:var(--text-muted)"></span>bundled file</div>
+    <h2>state</h2>
+    <div class="row"><span class="swatch" style="background:color-mix(in srgb, var(--scope-plugin) 22%, var(--surface-1));border:1.5px solid var(--scope-plugin)"></span>enabled</div>
+    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--scope-plugin)"></span>disabled (hollow)</div>
+    <div class="row"><span class="swatch" style="background:transparent;border:1.5px dashed var(--text-muted)"></span>dangling target</div>
+    <h2>edges</h2>
+    <div class="row"><span class="edge-sample"></span>references</div>
+    <div class="row"><span class="edge-sample" style="border-top-style:dotted"></span>mentions</div>
+    <div class="row"><span class="edge-sample" style="border-top-color:var(--critical)"></span>broken reference</div>
+    <div class="row"><span class="edge-sample" style="border-top-style:dotted;border-top-color:var(--critical)"></span>dangling mention</div>`;
+})();
+
+/* -------------------------------- footer -------------------------------- */
+(function footer() {
+  const s = GRAPH.stats;
+  const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const parts = [];
+  parts.push(META.view === "project" && META.project_name
+    ? `view: ${esc(META.project_name)}` : "view: global");
+  parts.push(`generated ${META.generated_at}`);
+  parts.push(`${s.skills} skills (${s.enabled} enabled) · ${s.files} files · ${s.edges} edges`);
+  if (s.duplicate_names && s.duplicate_names.length)
+    parts.push(`<span class="warn">duplicate names: ${s.duplicate_names.join(", ")}</span>`);
+  if (s.dangling || s.broken_refs)
+    parts.push(`<span class="warn">${s.dangling} dangling · ${s.broken_refs} broken refs</span>`);
+  if (META.stale) parts.push(`<span class="warn">⚠ graph.json is older than the newest SKILL.md or manifest — rebuild</span>`);
+  document.getElementById("footer").innerHTML = parts.map(p => `<span>${p}</span>`).join("");
+})();
+
+/* ------------------------------ table view ------------------------------ */
+function buildTable() {
+  const degree = new Map();
+  allEdges.forEach(e => {
+    degree.set(e.source, (degree.get(e.source) || 0) + 1);
+    degree.set(e.target, (degree.get(e.target) || 0) + 1);
+  });
+  const rows = allNodes.filter(n => n.type === "skill" && !n.unregDisplay).map(n => ({
+    name: n.name, id: n.id, scope: n.scope || "", plugin: n.plugin || "",
+    enabled: n.enabled ? "yes" : "no", degree: degree.get(n.id) || 0,
+  }));
+  const cols = ["name", "scope", "plugin", "enabled", "degree"];
+  let sortKey = "name", asc = true;
+  const container = document.getElementById("tableview");
+  function draw() {
+    rows.sort((a, b) => (a[sortKey] < b[sortKey] ? -1 : a[sortKey] > b[sortKey] ? 1 : 0) * (asc ? 1 : -1));
+    container.innerHTML = `<table><thead><tr>${cols.map(c =>
+      `<th data-k="${c}">${c}${c === sortKey ? (asc ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead><tbody>` +
+      rows.map(r => `<tr><td><span class="dot" style="background:${SCOPE_COLOR[r.scope] || "var(--text-muted)"}"></span>${r.id}</td>` +
+        cols.slice(1).map(c => `<td>${r[c]}</td>`).join("") + "</tr>").join("") + "</tbody></table>";
+    container.querySelectorAll("th").forEach(th => th.addEventListener("click", () => {
+      const k = th.dataset.k; asc = k === sortKey ? !asc : true; sortKey = k; draw();
+    }));
+  }
+  draw();
+}
+
+/* ---------------------------- graph rendering ---------------------------- */
+const svg = d3.select("#canvas");
+const viewport = svg.append("g");
+const zoom = d3.zoom().scaleExtent([0.15, 4]).on("zoom", ev => viewport.attr("transform", ev.transform));
+svg.call(zoom);
+const tooltip = document.getElementById("tooltip");
+let pinned = null;
+let sim = null;
+
+function visibleModel() {
+  const hideFiles = ctl.files.checked;
+  const hideMentions = ctl.mentions.checked;
+  const danglingOnly = ctl.dangling.checked;
+  const showUnreg = ctl.unregistered.checked;
+  const active = activeGroups();
+
+  /* primary skills pass the plugin filter; files and dangling targets are
+     dependent nodes — they survive only through edges from visible skills */
+  const primary = new Set(allNodes.filter(n =>
+    n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n))
+  ).map(n => n.id));
+
+  let edges = allEdges.filter(e => {
+    if (hideFiles && e.kind === "references") return false;
+    if (hideMentions && e.kind === "mentions") return false;
+    if (danglingOnly && !(e.kind === "dangling" || e.broken)) return false;
+    if (!primary.has(e.source)) return false;
+    const target = nodeById.get(e.target);
+    if (target && target.type === "skill" && !target.dangling && !primary.has(e.target))
+      return false;   /* mention into a filtered-out plugin: drop the edge too */
+    return true;
+  });
+  const keep = new Set();
+  edges.forEach(e => { keep.add(e.source); keep.add(e.target); });
+  let nodes = allNodes.filter(n => {
+    if (n.unregDisplay) return showUnreg;
+    if (n.type === "file") return !hideFiles && keep.has(n.id);
+    if (n.dangling) return keep.has(n.id);
+    if (!primary.has(n.id)) return false;
+    if (danglingOnly) return keep.has(n.id);
+    return true;
+  });
+  const present = new Set(nodes.map(n => n.id));
+  edges = edges.filter(e => present.has(e.source) && present.has(e.target));
+  return { nodes, edges };
+}
+
+function nodeSize(n) {
+  if (n.type === "file") return { r: 4.5 };
+  const w = Math.max(52, 14 + n.name.length * 6.2);
+  return { w: w, h: 22 };
+}
+
+function drawGraph() {
+  const { nodes, edges } = visibleModel();
+  viewport.selectAll("*").remove();
+  pinned = null;
+  if (sim) sim.stop();
+
+  const width = document.getElementById("stage").clientWidth || 1200;
+  const height = document.getElementById("stage").clientHeight || 800;
+
+  /* one cluster centre per filter group (plugin name, or scope for
+     user/project/built-in skills); files inherit the group of a skill
+     that references them so bundles stay with their plugin */
+  const fileGroup = new Map();
+  edges.forEach(e => {
+    if (e.kind !== "references") return;
+    const s = nodeById.get(e.source);
+    if (s && s.type === "skill") fileGroup.set(e.target, groupOf(s));
+  });
+  const clusterKey = n => n.type === "file" ? (fileGroup.get(n.id) || "file") : groupOf(n);
+  const groupNames = [...new Set(nodes.map(clusterKey))].sort();
+  const centers = new Map();
+  const R = Math.min(width, height) * Math.min(0.62, 0.3 + groupNames.length * 0.045);
+  groupNames.forEach((g, i) => {
+    const a = (i / groupNames.length) * 2 * Math.PI - Math.PI / 2;
+    centers.set(g, groupNames.length === 1 ? [width / 2, height / 2]
+      : [width / 2 + Math.cos(a) * R * 1.25, height / 2 + Math.sin(a) * R * 0.8]);
+  });
+  const centerOf = n => centers.get(clusterKey(n)) || [width / 2, height / 2];
+
+  const rng = mulberry32(42);
+  nodes.forEach(n => {
+    const c = centerOf(n);
+    const h = hashCode(n.id);
+    n.x = c[0] + ((h % 997) / 997 - 0.5) * 160;
+    n.y = c[1] + (((h >> 10) % 997) / 997 - 0.5) * 160;
+    const size = nodeSize(n);
+    n._w = size.w || 9; n._h = size.h || 9;
+  });
+
+  /* orphans pinned to a labelled gutter — a primary finding, not driftwood (§7.2) */
+  const orphanIds = new Set(GRAPH.stats.orphan_ids || []);
+  let gyLeft = 70;
+  nodes.forEach(n => {
+    if (orphanIds.has(n.id) && !n.unregDisplay) { n.fx = 90; n.fy = gyLeft; gyLeft += 34; n._gutter = true; }
+  });
+  /* unregistered gutter stacks below the orphans, left side — the legend
+     owns the top-right corner */
+  let unregLabelY = null;
+  if (ctl.unregistered.checked) {
+    const unregNodes = nodes.filter(n => n.unregDisplay);
+    if (unregNodes.length) {
+      gyLeft += 18;
+      unregLabelY = gyLeft;
+      gyLeft += 22;
+      unregNodes.forEach(n => { n.fx = 110; n.fy = gyLeft; gyLeft += 30; n._gutter = true; });
+    }
+  }
+
+  sim = d3.forceSimulation(nodes)
+    .randomSource(rng)
+    .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
+      .id(d => d.id).distance(e => e.kind === "references" ? 85 : 170).strength(0.5))
+    .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
+    .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
+    .force("y", d3.forceY(d => centerOf(d)[1]).strength(d => d.type === "file" ? 0.05 : 0.11))
+    .force("collide", d3.forceCollide(d => d.type === "file" ? 11 : d._w * 0.42 + 14).iterations(2))
+    .stop();
+  const simEdges = sim.force("link").links();
+  for (let i = 0; i < 300; i++) sim.tick();   /* deterministic warm-up → same opening picture twice */
+
+  /* fit the settled layout into the viewport */
+  if (nodes.length) {
+    const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+    const x0 = Math.min(...xs) - 90, x1 = Math.max(...xs) + 90;
+    const y0 = Math.min(...ys) - 50, y1 = Math.max(...ys) + 50;
+    const k = Math.min(2, 0.98 * Math.min(width / (x1 - x0), height / (y1 - y0)));
+    svg.call(zoom.transform, d3.zoomIdentity
+      .translate(width / 2 - k * (x0 + x1) / 2, height / 2 - k * (y0 + y1) / 2)
+      .scale(k));
+  }
+
+  const edgeSel = viewport.append("g").selectAll("line").data(simEdges).join("line")
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y)
+    .attr("stroke", d => (d.broken || d.kind === "dangling") ? "var(--critical)" : "var(--baseline)")
+    .attr("stroke-width", 1.4)
+    .attr("stroke-dasharray", d => d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null)
+    .attr("opacity", 0.75);
+
+  if (nodes.some(n => n.fx !== undefined && orphanIds.has(n.id)))
+    viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", 44).text("orphans");
+  if (unregLabelY !== null)
+    viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", unregLabelY).text("unregistered");
+
+  /* faint caption over each cluster, behind the edges */
+  const captionLayer = viewport.insert("g", ":first-child");
+  groupNames.forEach(g => {
+    if (g === "file") return;
+    const members = nodes.filter(n => clusterKey(n) === g && n.type === "skill" && !n._gutter);
+    if (!members.length) return;
+    const mx = members.reduce((s, n) => s + n.x, 0) / members.length;
+    const my = Math.min(...members.map(n => n.y)) - 36;
+    captionLayer.append("text").attr("class", "gutterlabel")
+      .attr("text-anchor", "middle").attr("x", mx).attr("y", my)
+      .attr("opacity", 0.75).text(groupLabel(g));
+  });
+
+  const nodeSel = viewport.append("g").selectAll("g.node").data(nodes).join("g")
+    .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`)
+    .style("cursor", "pointer");
+
+  nodeSel.each(function (d) {
+    const g = d3.select(this);
+    if (d.type === "file") {
+      g.append("circle").attr("r", 4.5)
+        .attr("fill", d.exists === false ? "transparent" : "var(--text-muted)")
+        .attr("stroke", d.exists === false ? "var(--critical)" : "var(--text-muted)")
+        .attr("stroke-width", 1.4);
+      return;
+    }
+    const { w, h } = nodeSize(d);
+    const color = SCOPE_COLOR[d.scope] || "var(--text-muted)";
+    g.append("rect")
+      .attr("x", -w / 2).attr("y", -h / 2).attr("width", w).attr("height", h)
+      .attr("rx", 3)
+      .attr("fill", d.enabled ? `color-mix(in srgb, ${color} 30%, var(--surface-1))` : "transparent")
+      .attr("stroke", d.dangling ? "var(--text-muted)" : color)
+      .attr("stroke-width", d.enabled ? 1.6 : 1.3)
+      .attr("stroke-dasharray", d.dangling ? "4,3" : null);
+    g.append("text").attr("class", "nodelabel")
+      .attr("text-anchor", "middle").attr("dy", "0.34em")
+      .style("fill", d.enabled ? "var(--text-primary)" : "var(--text-muted)")
+      .text(d.name);
+    const files = fileCount.get(d.id);
+    if (ctl.files.checked && files)
+      g.append("text").attr("class", "nodelabel").attr("x", w / 2 + 4)
+        .attr("dy", "0.34em").attr("fill", "var(--text-muted)")
+        .style("font-size", "9px").text("◦" + files);
+  });
+
+  /* interactions */
+  const neighbor = new Map();
+  simEdges.forEach(e => {
+    if (!neighbor.has(e.source.id)) neighbor.set(e.source.id, new Set());
+    if (!neighbor.has(e.target.id)) neighbor.set(e.target.id, new Set());
+    neighbor.get(e.source.id).add(e.target.id);
+    neighbor.get(e.target.id).add(e.source.id);
+  });
+  function focus(id) {
+    const hood = new Set([id, ...(neighbor.get(id) || [])]);
+    nodeSel.classed("dim", d => !hood.has(d.id));
+    edgeSel.classed("dim", d => !(d.source.id === id || d.target.id === id));
+  }
+  function unfocus() { nodeSel.classed("dim", false); edgeSel.classed("dim", false); }
+
+  nodeSel.on("mouseenter", (ev, d) => {
+    tooltip.innerHTML = `
+      <div class="tt-id">${d.id}</div>
+      ${d.description ? `<div>${d.description}</div>` : ""}
+      <div>${d.type === "file" ? "bundled file" : (d.scope || "")}` +
+      `${d.plugin ? " · " + d.plugin + (d.version ? " " + d.version : "") : ""}` +
+      `${d.type !== "file" ? " · " + (d.enabled ? "enabled" : "disabled") : ""}` +
+      `${d.registered === false ? " · unregistered" : ""}</div>
+      ${d.path ? `<div class="tt-path">${d.path}</div>` : `<div class="tt-path">no file on disk</div>`}`;
+    tooltip.style.display = "block";
+    if (!pinned) focus(d.id);
+  }).on("mousemove", ev => {
+    const stage = document.getElementById("stage").getBoundingClientRect();
+    tooltip.style.left = Math.min(ev.clientX - stage.left + 14, stage.width - 350) + "px";
+    tooltip.style.top = (ev.clientY - stage.top + 12) + "px";
+  }).on("mouseleave", () => {
+    tooltip.style.display = "none";
+    if (!pinned) unfocus();
+  }).on("click", (ev, d) => {
+    ev.stopPropagation();
+    pinned = pinned === d.id ? null : d.id;
+    if (pinned) focus(d.id); else unfocus();
+  });
+  svg.on("click", () => { pinned = null; unfocus(); });
+
+  nodeSel.call(d3.drag()
+    .on("start", (ev, d) => {
+      if (!ev.active) sim.alphaTarget(0.3).restart();
+      d.fx = d.x; d.fy = d.y;
+    })
+    .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+    .on("end", (ev, d) => {
+      if (!ev.active) sim.alphaTarget(0);
+      /* gutter nodes stay pinned where dropped; everything else floats free */
+      if (!d._gutter) { d.fx = null; d.fy = null; }
+    }));
+
+  sim.on("tick", () => {
+    edgeSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    nodeSel.attr("transform", d => `translate(${d.x},${d.y})`);
+  });
+
+  applySearch();
+  function applySearch() {
+    const q = ctl.search.value.trim().toLowerCase();
+    if (!q) { if (!pinned) unfocus(); return; }
+    nodeSel.classed("dim", d =>
+      !(d.name.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q) || d.id.toLowerCase().includes(q)));
+    edgeSel.classed("dim", true);
+  }
+  ctl.search.oninput = applySearch;
+}
+
+/* ------------------------------ view switch ------------------------------ */
+const useTable = nodeTotal > 600;   /* §7.4 second band */
+if (useTable) {
+  document.getElementById("stage").style.display = "none";
+  document.getElementById("tableview").style.display = "block";
+  buildTable();
+  const btn = document.createElement("button");
+  btn.textContent = `render graph anyway (${nodeTotal} nodes)`;
+  btn.style.margin = "0 0 10px";
+  btn.addEventListener("click", () => {
+    document.getElementById("tableview").style.display = "none";
+    document.getElementById("stage").style.display = "block";
+    drawGraph();
+  });
+  document.getElementById("tableview").prepend(btn);
+} else {
+  drawGraph();
+}
+[ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c =>
+  c.addEventListener("change", drawGraph));
+window.addEventListener("resize", () => { if (!useTable) drawGraph(); });
+</script>
+</body>
+</html>

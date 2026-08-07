@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "alpha@fake-mp": true,
+    "beta@fake-mp": true
+  }
+}

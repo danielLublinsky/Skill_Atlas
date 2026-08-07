@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "plugins": {
+    "alpha@fake-mp": [
+      {
+        "scope": "user",
+        "installPath": "__CLAUDE_DIR__/plugins/cache/fake-mp/alpha/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-05-01T00:00:00.000Z"
+      },
+      {
+        "scope": "project",
+        "installPath": "__CLAUDE_DIR__/plugins/cache/fake-mp/alpha/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-06-01T00:00:00.000Z"
+      }
+    ],
+    "beta@fake-mp": [
+      {
+        "scope": "user",
+        "installPath": "__CLAUDE_DIR__/plugins/cache/fake-mp/beta/unknown",
+        "version": "unknown"
+      }
+    ]
+  }
+}

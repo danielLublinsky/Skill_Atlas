@@ -1,0 +1,19 @@
+# Claude Code local settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated artifacts
+graph.json
+usage.json
+atlas.html
+sessions/
+*.dirty
+debug.log
+
+# OS
+.DS_Store

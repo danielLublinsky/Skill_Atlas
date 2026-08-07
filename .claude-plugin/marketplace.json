@@ -1,0 +1,13 @@
+{
+  "name": "skill-atlas-dev",
+  "owner": {
+    "name": "danson"
+  },
+  "plugins": [
+    {
+      "name": "skill-atlas",
+      "source": "./",
+      "description": "Graph and visualize your installed Claude Code skill collection."
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+# skill-atlas
+
+A Claude Code plugin for a skill collection that has outgrown anyone's
+ability to eyeball it. Two halves:
+
+**The atlas — shipped.** A structural map of every *registered* skill
+(manifest-driven — not "any directory containing SKILL.md", which
+over-counts by ~60% on a real machine), rendered as a single
+self-contained `atlas.html` that opens offline from `file://`. It
+answers: which skills are actually loadable, which are switched off,
+which point at things that no longer exist, and which are duplicated.
+
+**The catalog + search — designed, not yet implemented.** Claude Code
+injects every enabled skill's description into every session (~48 tokens
+per skill, used or not); a multi-plugin collection of 100+ skills costs
+thousands of tokens per session, and near-duplicate skills silently
+compete for the model's attention. skill-atlas adds a third tier between
+enabled and disabled — **searchable**: zero tokens per session, still
+findable. Skills get model-assigned categories (proposed once, approved
+by the user, then frozen), the build derives a compact catalog from
+them, and one always-enabled search skill routes any task to the right
+skill in two small reads — a category index, then a single category's
+entries — instead of one giant preload. The full spec, with every
+decision and its reason, is [DESIGN-PHASE2.md](DESIGN-PHASE2.md).
+
+| Tier | In context? | Findable? | Cost / session |
+| --- | --- | --- | --- |
+| enabled | yes — description injected | natively | ~48 tokens each |
+| searchable (opt-in, per plugin) | no | via the search skill | 0 |
+| disabled | no | no — disable keeps meaning disable | 0 |
+
+It deliberately does **not** count skill invocations. Usage tracking was
+fully specified, measured against a real machine, and dropped: skill
+invocation is too rare an event for zero-counts to mean anything on a
+personal collection. The design record and the arithmetic are in
+[DESIGN.md](DESIGN.md) §6; the rest of the design rationale and evidence
+is in the same file.
+
+## Quick start
+
+```bash
+python3 scripts/build_graph.py   # manifests + skill roots → ~/.claude/skill-atlas/graph.json
+python3 scripts/render.py        # graph.json → ~/.claude/skill-atlas/atlas.html
+```
+
+Run from inside a project (any directory with its own `.claude/`), both
+scripts additionally produce a **project view** written into the project at
+`.claude/skill-atlas/{graph.json, atlas.html}`: user skills + that project's
+skills + installed plugins, with the *project's own* `enabledPlugins`
+overrides applied — so a plugin disabled globally but enabled for the
+project shows correctly in each view. The global artifacts stay
+machine-level (they no longer include any project's skills). Add
+`.claude/skill-atlas/` to the project's `.gitignore` — the files are
+derived caches.
+
+`build_graph.py` exit codes make it usable as a CI gate:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Graph built, nothing dangling |
+| 1 | ≥1 defect: broken file reference, or a mention of an unregistered/disabled skill |
+| 2 | Build failed |
+
+## Install as a plugin (auto-update hooks)
+
+```bash
+claude plugin marketplace add /path/to/SKILL-ATLAS
+claude plugin install skill-atlas@skill-atlas-dev
+```
+
+Two hooks keep the graph fresh; neither logs anything:
+
+- **SessionStart** — stat-only fingerprint over every SKILL.md *and* every
+  manifest (installed_plugins.json, settings.json / settings.local.json,
+  each plugin.json); rebuilds on mismatch. Aborts at 2 s — a slow hook is
+  worse than a stale graph.
+- **PostToolUse (Write|Edit)** — flags the graph dirty when a skill file or
+  manifest is edited; the flag is consumed at the next session start.
+
+After changing `hooks/` you need `/reload-plugins` or a restart; SKILL.md
+edits apply immediately. Hook-script iteration goes through
+`claude plugin update skill-atlas`.
+
+### Verifying auto-update (milestone 4, manual)
+
+`make m4-check` prints the procedure: toggle any `enabledPlugins` entry in
+`~/.claude/settings.json`, start a new session, and confirm
+`graph.json`'s `generated_at` advanced with the toggle reflected — no
+SKILL.md was touched, which is exactly the case a naive fingerprint misses.
+
+## Privacy
+
+skill-atlas reads manifests and skill files only. It never opens
+`~/.claude/projects` (Claude Code's session transcripts) — the feature
+that would have is dropped (DESIGN.md §6). Two notes that still apply:
+
+1. `debug.log` receives file path, line number and exception **type** only,
+   never the content of whatever was being parsed.
+2. `atlas.html` shows real filesystem paths, and a project view is named
+   after the project directory. Fine locally; sharing a screenshot is a
+   decision, not an accident.
+
+## Configuration
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `SKILL_ATLAS_HOME` | `~/.claude/skill-atlas` | artifact root — derived files only |
+| `SKILL_ATLAS_CLAUDE_DIR` | `~/.claude` | Claude Code config root (test seam) |
+| `SKILL_ATLAS_AUTOBUILD` | `1` | `0` disables the SessionStart staleness check |
+
+All derived files (`graph.json`, `atlas.html`) are caches: deletable at
+any time, rebuilt from scratch on the next run. If one is corrupted the
+fix is rebuild, never repair. (Phase 2 adds two files that are *not*
+caches — a curated `categories.json` and a `config.json` opt-in list;
+see DESIGN-PHASE2.md §3.4 for which files may be deleted and which may
+not.)
+
+## Development
+
+```bash
+make test    # unit suite against fixtures — never touches your ~/.claude
+make smoke   # read-only structural checks against the live machine
+make build render
+```
+
+Layout: `scripts/atlas_*.py` are shared modules (path/env resolution,
+discovery, extraction, fingerprint, atomic IO); entry points are
+`build_graph.py`, `render.py`, and the two hook scripts. Tests run against
+a synthetic `~/.claude` in `tests/fixtures/fakehome/` that reproduces every
+discovery trap found on a real machine (array-valued install records,
+`skills[]` allowlists vs flat globs, stale cached versions, marketplace
+phantoms, symlinked skills, name collisions, and a twin of a real dangling
+defect).
+
+`vendor/d3.v7.min.js` is D3 7.9.0 (ISC license, © Mike Bostock), fetched
+once by `dev/fetch_d3.sh` with a pinned sha256 and inlined into
+`atlas.html` at render time — the output makes zero network requests.
+
+## Status
+
+- **Phase 1** — structural graph + visualization + freshness hooks:
+  **complete**.
+- **Phase 2** — categorization + search: **designed**
+  ([DESIGN-PHASE2.md](DESIGN-PHASE2.md)); implementation order is catalog
+  first (schemas + validating writer, `build_graph.py` delta,
+  `/skill-atlas` bootstrap), then the search skill and the session index
+  line.
+- **Usage tracking** — dropped, out of scope; the design and the
+  arithmetic that killed it are recorded in DESIGN.md §6.

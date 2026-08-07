@@ -1,0 +1,8 @@
+{
+  "name": "alpha",
+  "version": "0.9.0",
+  "description": "STALE cached version — installPath points at 1.0.0; walking this is a bug.",
+  "skills": [
+    "./skills/eng/one"
+  ]
+}
