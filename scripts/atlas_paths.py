@@ -20,7 +20,10 @@ def claude_dir() -> Path:
 
 
 def atlas_home() -> Path:
-    """Artifact root — derived files only."""
+    """Artifact root. Mostly derived files (graph.json, atlas.html, catalog/),
+    plus two Phase 2 exceptions with different loss semantics: categories.json
+    is CURATED (restore from backup, never regenerate) and config.json is user
+    config (DESIGN-PHASE2 §3.4)."""
     return _env_path("SKILL_ATLAS_HOME", claude_dir() / "skill-atlas")
 
 
@@ -38,6 +41,27 @@ def dirty_path() -> Path:
 
 def debug_log_path() -> Path:
     return atlas_home() / "debug.log"
+
+
+def categories_path() -> Path:
+    """Curated category state (DESIGN-PHASE2 §3.1) — never regenerated."""
+    return atlas_home() / "categories.json"
+
+
+def config_path() -> Path:
+    """User config: the searchable-tier opt-in (DESIGN-PHASE2 §3.2)."""
+    return atlas_home() / "config.json"
+
+
+def catalog_dir() -> Path:
+    """Derived search shards (DESIGN-PHASE2 §5) — rebuild, never repair."""
+    return atlas_home() / "catalog"
+
+
+def catalog_index_path() -> Path:
+    # "_" is outside the category slug alphabet, so no category shard can
+    # ever collide with the index file.
+    return catalog_dir() / "_index.md"
 
 
 def user_skills_root() -> Path:
