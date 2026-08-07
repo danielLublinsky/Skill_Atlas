@@ -505,11 +505,16 @@ Cluster by scope. Orphan skills (degree 0) pinned to a labelled gutter rather th
 
 ### 7.3 Interaction
 
-- hover → tooltip: id, description, path, plugin + version, enabled state
-- click → pin node, highlight 1-hop neighbourhood, dim the rest
+- hover → tooltip: id, description, path, plugin + version, enabled state. It parks in the
+  bottom-right corner rather than trailing the cursor: a panel that follows the mouse covers
+  the neighbourhood you hovered to inspect, and its text moves while you read it.
+- click → pin node, highlight 1-hop neighbourhood, dim the rest. The incident edges are
+  actively highlighted (thicker, full contrast), not merely spared the dimming — which edges
+  connect is the answer being looked for, and broken edges keep their red under the highlight.
 - search box → filter by name/description, live
 - toggles: hide files, hide `mentions` edges, show dangling only, show unregistered
-- legend, always visible
+- legend, top-right, collapsible — reference material earns its space while you learn the
+  encoding and gets in the way afterwards
 - footer: view (global / project name), generated timestamp, node and defect counts, staleness
   warning if `graph.json` is older than the newest SKILL.md **or manifest**
 

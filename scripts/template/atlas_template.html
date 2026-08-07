@@ -111,6 +111,21 @@
     letter-spacing: 0.04em;
   }
   header button:hover, #plugin-filter > summary:hover { color: var(--text-primary); }
+  /* view tabs: scope | categories — the primary switch, not a filter */
+  #tabs { display: inline-flex; border: 1px solid var(--baseline); border-radius: 2px;
+    overflow: hidden; }
+  #tabs .tab {
+    padding: 3px 12px; border: 0; border-right: 1px solid var(--baseline);
+    border-radius: 0; background: var(--plane); color: var(--text-muted);
+    font: inherit; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em; cursor: pointer;
+  }
+  #tabs .tab:last-child { border-right: 0; }
+  #tabs .tab:hover { color: var(--text-primary); }
+  #tabs .tab[aria-selected="true"] {
+    background: var(--surface-1); color: var(--text-primary);
+    box-shadow: inset 0 -2px 0 var(--text-primary);
+  }
   #plugin-filter { position: relative; }
   #plugin-filter > summary {
     list-style: none; cursor: pointer; user-select: none;
@@ -147,6 +162,20 @@
     border-radius: 2px; padding: 10px 12px; box-shadow: 0 3px 0 var(--border);
     font-size: 12px;
   }
+  #legend:not([open]) { width: auto; }
+  #legend > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.18em;
+    font-weight: 700; color: var(--text-muted);
+  }
+  #legend > summary::-webkit-details-marker { display: none; }
+  #legend > summary::after { content: "▾"; margin-left: auto; letter-spacing: 0; }
+  #legend:not([open]) > summary::after { content: "▸"; }
+  #legend > summary:hover { color: var(--text-primary); }
+  #legend[open] > summary {
+    padding-bottom: 7px; margin-bottom: 8px; border-bottom: 1px solid var(--grid);
+  }
   #legend h2 {
     font-size: 9px; text-transform: uppercase; letter-spacing: 0.18em;
     color: var(--text-muted); margin: 10px 0 4px; font-weight: 700;
@@ -160,8 +189,11 @@
   .swatch.circle { width: 9px; height: 9px; border-radius: 50%; margin: 0 4.5px; }
   .edge-sample { width: 18px; height: 0; border-top: 2px solid var(--baseline); flex: none; }
 
+  /* parked in the bottom-right corner: a fixed reading spot beats a panel
+     that chases the cursor and covers the neighbourhood being inspected */
   #tooltip {
-    position: absolute; pointer-events: none; max-width: 340px; z-index: 10;
+    position: absolute; right: 14px; bottom: 14px; z-index: 10;
+    pointer-events: none; width: 320px; max-width: calc(100% - 28px);
     background: var(--surface-1); border: 1px solid var(--baseline);
     outline: 1px solid var(--border); outline-offset: 2px;
     border-radius: 2px; padding: 8px 10px; box-shadow: 0 3px 0 var(--border);
@@ -195,17 +227,24 @@
     font-family: var(--mono); font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.18em; }
   svg .dim { opacity: 0.14; }
+  /* focused neighbourhood: the incident edges lift, they don't merely
+     survive the dimming of everything else */
+  svg line.hot { opacity: 1; stroke-width: 2.6px; }
+  svg line.hot:not(.broken) { stroke: var(--text-primary); }
 </style>
 </head>
 <body>
 <header>
   <h1>SKILL·ATLAS<span class="cursor">▊</span></h1>
+  <div id="tabs" role="tablist" aria-label="view">
+    <button class="tab" role="tab" data-view="scope" aria-selected="true">scope</button>
+    <button class="tab" role="tab" data-view="category" aria-selected="false">categories</button>
+  </div>
   <input id="search" type="search" placeholder="filter skills…">
   <label class="toggle"><input type="checkbox" id="t-files"> hide files</label>
   <label class="toggle"><input type="checkbox" id="t-mentions"> hide mentions</label>
   <label class="toggle"><input type="checkbox" id="t-dangling"> dangling only</label>
   <label class="toggle"><input type="checkbox" id="t-unregistered"> show unregistered</label>
-  <label class="toggle"><input type="checkbox" id="t-category"> category view</label>
   <details id="plugin-filter">
     <summary id="plugin-summary">plugins ▾</summary>
     <div id="plugin-menu"></div>
@@ -215,7 +254,10 @@
 
 <div id="stage">
   <svg id="canvas"></svg>
-  <div id="legend"></div>
+  <details id="legend" open>
+    <summary>legend</summary>
+    <div id="legend-body"></div>
+  </details>
   <div id="tooltip"></div>
 </div>
 <div id="tableview"></div>
@@ -288,9 +330,26 @@ const ctl = {
   mentions: document.getElementById("t-mentions"),
   dangling: document.getElementById("t-dangling"),
   unregistered: document.getElementById("t-unregistered"),
-  category: document.getElementById("t-category"),
   search: document.getElementById("search"),
 };
+/* the by-category view is a tab, not a filter: it swaps the whole picture
+   (hubs + membership) rather than subtracting from the scope view */
+let viewMode = "scope";                       /* "scope" | "category" */
+const isCategoryView = () => viewMode === "category";
+const structuralToggles = [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered];
+(function tabs() {
+  const bar = document.getElementById("tabs");
+  bar.addEventListener("click", ev => {
+    const btn = ev.target.closest(".tab");
+    if (!btn || btn.dataset.view === viewMode) return;
+    viewMode = btn.dataset.view;
+    bar.querySelectorAll(".tab").forEach(b =>
+      b.setAttribute("aria-selected", String(b.dataset.view === viewMode)));
+    /* the structural toggles have no meaning in category view — grey them out */
+    structuralToggles.forEach(c => { c.disabled = isCategoryView(); });
+    drawGraph();
+  });
+})();
 /* the frozen taxonomy travels in graph.json (v3) — hub tooltips read it */
 const CATEGORY_DESC = new Map((GRAPH.taxonomy || []).map(t => [t.name, t.description]));
 if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
@@ -345,19 +404,16 @@ document.getElementById("theme").addEventListener("click", () => {
 
 /* -------------------------------- legend -------------------------------- */
 (function legend() {
-  const el = document.getElementById("legend");
+  const el = document.getElementById("legend-body");
   const scopeRows = ["user", "project", "plugin"].map(s =>
     `<div class="row"><span class="swatch" style="background:${SCOPE_COLOR[s]}"></span>${s}</div>`).join("");
   el.innerHTML = `
     <h2>scope</h2>${scopeRows}
     <div class="row"><span class="swatch" style="background:linear-gradient(90deg,#d9552f 0 4px,transparent 4px);border:1.5px solid var(--scope-plugin)"></span>plugin tag — one color each</div>
-    <h2>shape</h2>
-    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--text-muted)"></span>skill</div>
-    <div class="row"><span class="swatch circle" style="background:var(--text-muted)"></span>bundled file</div>
     <h2>state</h2>
     <div class="row"><span class="swatch" style="background:color-mix(in srgb, var(--scope-plugin) 22%, var(--surface-1));border:1.5px solid var(--scope-plugin)"></span>enabled</div>
-    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--scope-plugin)"></span>disabled (hollow)</div>
-    <div class="row"><span class="swatch" style="background:transparent;border:1.5px dashed var(--text-muted)"></span>dangling target</div>
+    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px solid var(--scope-plugin)"></span>disabled</div>
+    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px dashed var(--text-muted)"></span>dangling target</div>
     <h2>edges</h2>
     <div class="row"><span class="edge-sample"></span>references</div>
     <div class="row"><span class="edge-sample" style="border-top-style:dotted"></span>mentions</div>
@@ -443,7 +499,7 @@ function visibleModel() {
      orphans. The structural picture belongs to the scope view. Hubs live in
      the picture, never in graph.json; multi-category skills hang between
      their hubs. */
-  if (ctl.category.checked) {
+  if (isCategoryView()) {
     const members = allNodes.filter(n =>
       n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n)));
     const hubs = new Map();
@@ -511,7 +567,7 @@ function drawGraph() {
      user/project/built-in skills); in category view the home category
      clusters instead, and hubs anchor their own cluster. Files inherit the
      group of a skill that references them so bundles stay with their owner */
-  const catMode = ctl.category.checked;
+  const catMode = isCategoryView();
   const homeKey = n => (n.categories && n.categories.length) ? n.categories[0] : "uncategorized";
   const skillKey = n => catMode ? homeKey(n) : groupOf(n);
   const fileGroup = new Map();
@@ -585,6 +641,7 @@ function drawGraph() {
   const edgeSel = viewport.append("g").selectAll("line").data(simEdges).join("line")
     .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x).attr("y2", d => d.target.y)
+    .classed("broken", d => !!(d.broken || d.kind === "dangling"))
     .attr("stroke", d => (d.broken || d.kind === "dangling") ? "var(--critical)" : "var(--baseline)")
     .attr("stroke-width", d => d.kind === "member" ? 1.2 : 1.4)
     .attr("stroke-dasharray", d => d.kind === "member" ? (d.home ? null : "1,3")
@@ -677,11 +734,15 @@ function drawGraph() {
     neighbor.get(e.target.id).add(e.source.id);
   });
   function focus(id) {
+    const incident = d => d.source.id === id || d.target.id === id;
     const hood = new Set([id, ...(neighbor.get(id) || [])]);
     nodeSel.classed("dim", d => !hood.has(d.id));
-    edgeSel.classed("dim", d => !(d.source.id === id || d.target.id === id));
+    edgeSel.classed("dim", d => !incident(d)).classed("hot", incident);
   }
-  function unfocus() { nodeSel.classed("dim", false); edgeSel.classed("dim", false); }
+  function unfocus() {
+    nodeSel.classed("dim", false);
+    edgeSel.classed("dim", false).classed("hot", false);
+  }
 
   nodeSel.on("mouseenter", (ev, d) => {
     if (d.type === "cat") {
@@ -702,10 +763,6 @@ function drawGraph() {
     }
     tooltip.style.display = "block";
     if (!pinned) focus(d.id);
-  }).on("mousemove", ev => {
-    const stage = document.getElementById("stage").getBoundingClientRect();
-    tooltip.style.left = Math.min(ev.clientX - stage.left + 14, stage.width - 350) + "px";
-    tooltip.style.top = (ev.clientY - stage.top + 12) + "px";
   }).on("mouseleave", () => {
     tooltip.style.display = "none";
     if (!pinned) unfocus();
@@ -747,12 +804,12 @@ function drawGraph() {
         const cats = (d.categories && d.categories.length) ? d.categories : ["uncategorized"];
         return !cats.includes(cat);
       });
-      edgeSel.classed("dim", true);
+      edgeSel.classed("dim", true).classed("hot", false);
       return;
     }
     nodeSel.classed("dim", d => d.type === "cat" ? false :
       !(d.name.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q) || d.id.toLowerCase().includes(q)));
-    edgeSel.classed("dim", true);
+    edgeSel.classed("dim", true).classed("hot", false);
   }
   ctl.search.oninput = applySearch;
 }
@@ -775,15 +832,7 @@ if (useTable) {
 } else {
   drawGraph();
 }
-[ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c =>
-  c.addEventListener("change", drawGraph));
-/* the structural toggles have no meaning in category view — grey them out */
-ctl.category.addEventListener("change", () => {
-  [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c => {
-    c.disabled = ctl.category.checked;
-  });
-  drawGraph();
-});
+structuralToggles.forEach(c => c.addEventListener("change", drawGraph));
 window.addEventListener("resize", () => { if (!useTable) drawGraph(); });
 </script>
 </body>

@@ -21,7 +21,7 @@ and these amendments override it where they conflict.
    the explicit `add-category` CLI act and calls it out in the report: additions are always
    visible, never silent. Editing/curation workflows come later (amendment 3).
 2. **Scope view stays the atlas default, and the category view is pure catalog.** §7.1's "new
-   default view" is amended: the by-category view is an explicit toggle, and Phase 1's scope
+   default view" is amended: the by-category view is a second tab, and Phase 1's scope
    clustering remains the opening picture. In category view the model contains ONLY category
    hubs, member skills and membership edges — no files, `references`, `mentions`, dangling
    targets or orphan gutter (the structural toggles grey out); §7.1's "existing toggle brings
@@ -438,8 +438,10 @@ to it as a connected node.**
 - **Skills only.** File nodes and `references` edges are hidden by default in this view (the
   existing toggle brings them back); the category view is about finding and comparing skills,
   not auditing their bundles.
-- **Scope view survives as a toggle** — the Phase 1 clustering (user / project / plugin)
-  remains for structural questions; the view toggle sits in the existing control strip.
+- **Scope view survives as the first tab** — the Phase 1 clustering (user / project / plugin)
+  remains for structural questions; the two views are tabs at the head of the control strip,
+  not a checkbox among the filters: swapping the whole picture is a different act from
+  subtracting from it.
 - Hub-and-spoke also helps at scale: hubs anchor the layout, so the 200–600 node band
   (DESIGN.md §7.4) stays legible longer than free force-directed clustering does.
 
@@ -450,7 +452,7 @@ to it as a connected node.**
 - **Tier gets a channel** — enabled / searchable / off; searchable reuses the hollow-fill idea
   with a distinct stroke so it cannot be confused with plain disabled.
 
-Beyond the view toggle, no new interaction machinery except a category filter in the existing
+Beyond the view tabs, no new interaction machinery except a category filter in the existing
 search box.
 
 ---

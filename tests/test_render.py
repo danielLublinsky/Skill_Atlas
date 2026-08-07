@@ -88,7 +88,7 @@ class TestRender(unittest.TestCase):
             taxonomy = _data_block(html)["graph"]["taxonomy"]
             self.assertEqual([t["name"] for t in taxonomy], ["eng", "docs"])
             # Static template assertions at the M6 seams.
-            self.assertIn('id="t-category"', html)
+            self.assertIn('data-view="category"', html)   # view tab
             self.assertIn('"cat:"', html)          # hub synthesis marker
             self.assertIn("--tier-searchable", html)
             self.assertIn("category hub", html)     # legend row
