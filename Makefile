@@ -26,7 +26,7 @@ smoke:
 m4-check:
 	@echo "M4 (auto-update) manual check:"
 	@echo "  1. claude plugin marketplace add $(CURDIR)"
-	@echo "  2. claude plugin install skill-atlas@skill-atlas-dev"
+	@echo "  2. claude plugin install skill-atlas@skill-atlas"
 	@echo "  3. Note 'generated_at' in \$$SKILL_ATLAS_HOME/graph.json (default ~/.claude/skill-atlas/)"
 	@echo "  4. Toggle any entry in ~/.claude/settings.json enabledPlugins"
 	@echo "  5. Start a new Claude Code session, then re-check graph.json:"

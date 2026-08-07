@@ -1,7 +1,7 @@
-# skill-atlas
+# Skill_Atlas
 
-A Claude Code plugin for a skill collection that has outgrown anyone's
-ability to eyeball it. Two halves:
+A Claude Code plugin (`skill-atlas`) for a skill collection that has
+outgrown anyone's ability to eyeball it. Two halves:
 
 **The atlas — shipped.** A structural map of every *registered* skill
 (manifest-driven — not "any directory containing SKILL.md", which
@@ -64,9 +64,13 @@ derived caches.
 ## Install as a plugin (auto-update hooks)
 
 ```bash
-claude plugin marketplace add /path/to/SKILL-ATLAS
-claude plugin install skill-atlas@skill-atlas-dev
+git clone https://github.com/danielLublinsky/Skill_Atlas.git
+claude plugin marketplace add ./Skill_Atlas
+claude plugin install skill-atlas@skill-atlas
 ```
+
+(The repository is `Skill_Atlas`; the plugin and marketplace are both
+named `skill-atlas`.)
 
 Two hooks keep the graph fresh; neither logs anything:
 
