@@ -27,7 +27,10 @@ and these amendments override it where they conflict.
    targets or orphan gutter (the structural toggles grey out); §7.1's "existing toggle brings
    files back" is dropped. The structural picture belongs to the scope view. Additionally the
    orphan gutter is removed from the scope view too (amends DESIGN.md §7.2): orphans float as
-   ordinary nodes and settle near their own cluster.
+   ordinary nodes and settle near their own cluster. The unregistered gutter goes the same way
+   — unregistered skills carry their originating plugin and cluster with it, since "this
+   plugin ships skills its manifest never registers" is the finding, and a lane off to the
+   side severs it from the plugin it indicts. They obey the plugin filter for the same reason.
 3. **Future editing direction: export/download from the HTML.** categories.json is hand-editable
    curated state, and the long-term plan is editing it in the atlas page (rename categories,
    drag skills) with a download of the resulting categories.json — a static file:// page cannot

@@ -478,7 +478,7 @@ Single self-contained `atlas.html` — D3 inlined, no CDN, no build step, opens 
 | --- | --- |
 | Node shape | rounded rect = skill, small circle = bundled file |
 | Node color | scope — user / project / plugin |
-| Node fill | hollow = disabled, filled = enabled |
+| Node fill | stage colour = disabled, tinted = enabled — "hollow" is painted, never transparent, so edges running to the node centre stop at its border instead of crossing the label |
 | Node stroke | grey dash = dangling target (unregistered/absent) |
 | Edge style | solid = `references`, dotted = `mentions` |
 | Edge color | red = broken reference or `dangling` edge |
@@ -511,10 +511,13 @@ Cluster by scope. Orphan skills (degree 0) pinned to a labelled gutter rather th
 - click → pin node, highlight 1-hop neighbourhood, dim the rest. The incident edges are
   actively highlighted (thicker, full contrast), not merely spared the dimming — which edges
   connect is the answer being looked for, and broken edges keep their red under the highlight.
+  Neighbouring file dots brighten and gain a ring rather than growing: at 4.5px a size change
+  is unreadable, and a moving radius would shift the layout it sits in.
 - search box → filter by name/description, live
 - toggles: hide files, hide `mentions` edges, show dangling only, show unregistered
 - legend, top-right, collapsible — reference material earns its space while you learn the
-  encoding and gets in the way afterwards
+  encoding and gets in the way afterwards. It carries scope, state, edges and catalog; the
+  shape row is dropped, since rect-vs-dot is self-evident at a glance and cost a section.
 - footer: view (global / project name), generated timestamp, node and defect counts, staleness
   warning if `graph.json` is older than the newest SKILL.md **or manifest**
 

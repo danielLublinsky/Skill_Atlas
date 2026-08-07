@@ -155,8 +155,16 @@
   #canvas { width: 100%; height: 100%; display: block; cursor: grab; }
   #canvas:active { cursor: grabbing; }
 
+  /* legend and tooltip share the top-right corner, legend first so the
+     tooltip sits to its right; the row is anchored, never reflowed by the
+     tooltip appearing (see #tooltip: it reserves its slot) */
+  #topright {
+    position: absolute; top: 14px; right: 14px; z-index: 10;
+    display: flex; align-items: flex-start; gap: 14px;
+    pointer-events: none;
+  }
   #legend {
-    position: absolute; top: 14px; right: 14px; width: 236px;
+    pointer-events: auto; flex: none; width: 236px;
     background: var(--surface-1); border: 1px solid var(--baseline);
     outline: 1px solid var(--border); outline-offset: 2px;
     border-radius: 2px; padding: 10px 12px; box-shadow: 0 3px 0 var(--border);
@@ -189,19 +197,26 @@
   .swatch.circle { width: 9px; height: 9px; border-radius: 50%; margin: 0 4.5px; }
   .edge-sample { width: 18px; height: 0; border-top: 2px solid var(--baseline); flex: none; }
 
-  /* parked in the bottom-right corner: a fixed reading spot beats a panel
-     that chases the cursor and covers the neighbourhood being inspected */
+  /* a fixed reading spot beats a panel that chases the cursor and covers the
+     neighbourhood being inspected. It keeps its slot when empty (visibility,
+     not display) so the legend never jumps sideways on hover */
   #tooltip {
-    position: absolute; right: 14px; bottom: 14px; z-index: 10;
-    pointer-events: none; width: 320px; max-width: calc(100% - 28px);
+    pointer-events: none; flex: 0 1 320px; min-width: 0;
     background: var(--surface-1); border: 1px solid var(--baseline);
     outline: 1px solid var(--border); outline-offset: 2px;
     border-radius: 2px; padding: 8px 10px; box-shadow: 0 3px 0 var(--border);
-    display: none; font-size: 11.5px; color: var(--text-secondary);
+    visibility: hidden; font-size: 11.5px; color: var(--text-secondary);
     overflow-wrap: break-word;
   }
+  #tooltip.on { visibility: visible; }
+  #tooltip.pinned { border-color: var(--text-secondary); }
   #tooltip .tt-id { font-weight: 700; color: var(--text-primary); font-size: 12px; }
   #tooltip .tt-path { color: var(--text-muted); font-size: 10.5px; }
+  #tooltip .tt-pin {
+    margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--grid);
+    color: var(--text-muted); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
 
   footer {
     display: flex; gap: 0; flex-wrap: wrap; align-items: center;
@@ -263,11 +278,13 @@
 
 <div id="stage">
   <svg id="canvas"></svg>
-  <details id="legend" open>
-    <summary>legend</summary>
-    <div id="legend-body"></div>
-  </details>
-  <div id="tooltip"></div>
+  <div id="topright">
+    <details id="legend" open>
+      <summary>legend</summary>
+      <div id="legend-body"></div>
+    </details>
+    <div id="tooltip"></div>
+  </div>
 </div>
 <div id="tableview"></div>
 
@@ -320,8 +337,11 @@ function groupColor(g) {
 
 const allNodes = GRAPH.nodes.map(n => Object.assign({}, n));
 GRAPH.unregistered_index.forEach((u, i) => {
+  /* the plugin travels onto the node: an unregistered skill belongs to the
+     collection it shipped in, and clusters there like an orphan does */
   allNodes.push({ id: "unreg:" + (u.plugin ? u.plugin + ":" : "") + u.name + "#" + i,
     type: "skill", name: u.name, path: u.path, scope: u.scope || "plugin",
+    plugin: u.plugin || undefined,
     registered: false, enabled: false, dangling: true, unregDisplay: true });
 });
 const nodeById = new Map(allNodes.map(n => [n.id, n]));
@@ -366,9 +386,12 @@ if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
 (function fillPluginFilter() {
   const groups = new Map();
   allNodes.forEach(n => {
-    if (n.type !== "skill" || n.dangling || n.unregDisplay) return;
+    if (n.type !== "skill") return;
+    if (n.dangling && !n.unregDisplay) return;   /* dangling targets aren't a group */
     const g = groupOf(n);
-    groups.set(g, (groups.get(g) || 0) + 1);
+    /* a plugin known only through unregistered skills still gets a checkbox,
+       but the count stays a count of registered skills */
+    groups.set(g, (groups.get(g) || 0) + (n.unregDisplay ? 0 : 1));
   });
   const menu = document.getElementById("plugin-menu");
   const quick = document.createElement("div");
@@ -544,7 +567,7 @@ function visibleModel() {
   const keep = new Set();
   edges.forEach(e => { keep.add(e.source); keep.add(e.target); });
   let nodes = allNodes.filter(n => {
-    if (n.unregDisplay) return showUnreg;
+    if (n.unregDisplay) return showUnreg && active.has(groupOf(n));
     if (n.type === "file") return !hideFiles && keep.has(n.id);
     if (n.dangling) return keep.has(n.id);
     if (!primary.has(n.id)) return false;
@@ -567,6 +590,7 @@ function drawGraph() {
   const { nodes, edges } = visibleModel();
   viewport.selectAll("*").remove();
   pinned = null;
+  tooltip.classList.remove("on", "pinned");   /* a redraw releases the pin */
   if (sim) sim.stop();
 
   const width = document.getElementById("stage").clientWidth || 1200;
@@ -603,27 +627,17 @@ function drawGraph() {
     const h = hashCode(n.id);
     n.x = c[0] + ((h % 997) / 997 - 0.5) * 160;
     n.y = c[1] + (((h >> 10) % 997) / 997 - 0.5) * 160;
-    n.fx = null; n.fy = null; n._gutter = false;
+    n.fx = null; n.fy = null;
     const size = nodeSize(n);
     n._w = size.w || (size.r ? size.r * 2 : 9); n._h = size.h || 9;
   });
 
-  /* orphans float free as ordinary nodes (amended — no gutter); with no
-     edges, the cluster forces settle them near their own group.
-     Unregistered skills are the one exception: they aren't part of the
-     graph's structure, so they're held out of the simulation entirely and
-     stacked in a lane placed clear of the settled layout — pinned inside it
-     they collided with real clusters and read as members of one. */
-  const gutterNodes = ctl.unregistered.checked ? nodes.filter(n => n.unregDisplay) : [];
-  gutterNodes.forEach(n => { n._gutter = true; });
-  const simNodes = nodes.filter(n => !n._gutter);
-  const simIds = new Set(simNodes.map(n => n.id));
-
-  sim = d3.forceSimulation(simNodes)
+  /* orphans and unregistered skills float free as ordinary nodes (amended —
+     no gutter): with no edges of their own, the cluster forces settle them
+     beside the plugin they shipped in, which is the fact worth seeing */
+  sim = d3.forceSimulation(nodes)
     .randomSource(rng)
-    .force("link", d3.forceLink(edges
-        .filter(e => simIds.has(e.source) && simIds.has(e.target))
-        .map(e => Object.assign({}, e)))
+    .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
       .id(d => d.id).distance(e => e.kind === "references" ? 85 : e.kind === "member" ? 110 : 170).strength(0.5))
     .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
     .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
@@ -633,22 +647,6 @@ function drawGraph() {
     .stop();
   const simEdges = sim.force("link").links();
   for (let i = 0; i < 300; i++) sim.tick();   /* deterministic warm-up → same opening picture twice */
-
-  /* the lane goes to the left of everything the simulation settled, with a
-     rule marking the boundary it must not cross */
-  let unregLabelY = null, unregRule = null;
-  if (gutterNodes.length) {
-    const laneW = Math.max(...gutterNodes.map(n => n._w));
-    const left = simNodes.length
-      ? Math.min(...simNodes.map(n => n.x - n._w / 2)) : width / 2;
-    const top = simNodes.length ? Math.min(...simNodes.map(n => n.y)) : height / 2;
-    const laneX = left - 100 - laneW / 2;
-    unregLabelY = top;
-    unregRule = { x: left - 50, y0: top - 20,
-                  y1: top + 26 + gutterNodes.length * 30 };
-    let y = top + 26;
-    gutterNodes.forEach(n => { n.fx = n.x = laneX; n.fy = n.y = y; y += 30; });
-  }
 
   /* fit the settled layout into the viewport */
   if (nodes.length) {
@@ -671,23 +669,12 @@ function drawGraph() {
       : (d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null))
     .attr("opacity", d => d.kind === "member" ? (d.home ? 0.5 : 0.3) : 0.75);
 
-  if (unregLabelY !== null) {
-    viewport.append("line")
-      .attr("x1", unregRule.x).attr("y1", unregRule.y0)
-      .attr("x2", unregRule.x).attr("y2", unregRule.y1)
-      .attr("stroke", "var(--grid)").attr("stroke-width", 1)
-      .attr("stroke-dasharray", "3,5");
-    viewport.append("text").attr("class", "gutterlabel")
-      .attr("text-anchor", "end").attr("x", unregRule.x - 14)
-      .attr("y", unregLabelY).text("unregistered");
-  }
-
   /* faint caption over each cluster, behind the edges — redundant in
      category view, where the hubs carry their own labels */
   const captionLayer = viewport.insert("g", ":first-child");
   groupNames.forEach(g => {
     if (g === "file" || catMode) return;
-    const members = nodes.filter(n => clusterKey(n) === g && n.type === "skill" && !n._gutter);
+    const members = nodes.filter(n => clusterKey(n) === g && n.type === "skill");
     if (!members.length) return;
     const mx = members.reduce((s, n) => s + n.x, 0) / members.length;
     const my = Math.min(...members.map(n => n.y)) - 36;
@@ -779,14 +766,14 @@ function drawGraph() {
     edgeSel.classed("dim", false).classed("hot", false);
   }
 
-  nodeSel.on("mouseenter", (ev, d) => {
+  function tooltipHTML(d) {
     if (d.type === "cat") {
       const desc = CATEGORY_DESC.get(d.name) ||
         (d.name === "uncategorized" ? "skills not yet categorized — run /skill-atlas" : "");
-      tooltip.innerHTML = `<div class="tt-id">${d.name} (${d.count})</div>` +
+      return `<div class="tt-id">${d.name} (${d.count})</div>` +
         (desc ? `<div>${desc}</div>` : "");
-    } else {
-      tooltip.innerHTML = `
+    }
+    return `
       <div class="tt-id">${d.id}</div>
       ${d.description ? `<div>${d.description}</div>` : ""}
       <div>${d.type === "file" ? "bundled file" : (d.scope || "")}` +
@@ -795,34 +782,43 @@ function drawGraph() {
       `${d.type !== "file" && d.categories && d.categories.length ? " · " + d.categories.join(", ") + (d.category_stale ? " (stale)" : "") : ""}` +
       `${d.registered === false ? " · unregistered" : ""}</div>
       ${d.path ? `<div class="tt-path">${d.path}</div>` : `<div class="tt-path">no file on disk</div>`}`;
-    }
-    tooltip.style.display = "block";
-    if (!pinned) focus(d.id);
+  }
+  /* pinning freezes the whole reading: the panel holds the clicked node and
+     the highlight stays with it, so hovering elsewhere can't desynchronise
+     the two. Click the node again, or the background, to release. */
+  function showTooltip(d, isPinned) {
+    tooltip.innerHTML = tooltipHTML(d) +
+      (isPinned ? `<div class="tt-pin">pinned · click again to release</div>` : "");
+    tooltip.classList.add("on");
+    tooltip.classList.toggle("pinned", !!isPinned);
+  }
+  function hideTooltip() { tooltip.classList.remove("on", "pinned"); }
+
+  nodeSel.on("mouseenter", (ev, d) => {
+    if (pinned) return;
+    showTooltip(d, false);
+    focus(d.id);
   }).on("mouseleave", () => {
-    tooltip.style.display = "none";
-    if (!pinned) unfocus();
+    if (pinned) return;
+    hideTooltip();
+    unfocus();
   }).on("click", (ev, d) => {
     ev.stopPropagation();
-    pinned = pinned === d.id ? null : d.id;
-    if (pinned) focus(d.id); else unfocus();
+    pinned = (pinned && pinned.id === d.id) ? null : d;
+    if (pinned) { showTooltip(d, true); focus(d.id); }
+    else { showTooltip(d, false); focus(d.id); }   /* still hovering it */
   });
-  svg.on("click", () => { pinned = null; unfocus(); });
+  svg.on("click", () => { pinned = null; hideTooltip(); unfocus(); });
 
   nodeSel.call(d3.drag()
     .on("start", (ev, d) => {
       if (!ev.active) sim.alphaTarget(0.3).restart();
       d.fx = d.x; d.fy = d.y;
     })
-    /* gutter nodes sit outside the simulation, so nothing copies fx→x for
-       them — the drag has to move them itself */
-    .on("drag", (ev, d) => {
-      d.fx = ev.x; d.fy = ev.y;
-      if (d._gutter) { d.x = ev.x; d.y = ev.y; }
-    })
+    .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
     .on("end", (ev, d) => {
       if (!ev.active) sim.alphaTarget(0);
-      /* gutter nodes stay pinned where dropped; everything else floats free */
-      if (!d._gutter) { d.fx = null; d.fy = null; }
+      d.fx = null; d.fy = null;
     }));
 
   sim.on("tick", () => {
