@@ -10,18 +10,20 @@ self-contained `atlas.html` that opens offline from `file://`. It
 answers: which skills are actually loadable, which are switched off,
 which point at things that no longer exist, and which are duplicated.
 
-**The catalog + search — designed, not yet implemented.** Claude Code
-injects every enabled skill's description into every session (~48 tokens
-per skill, used or not); a multi-plugin collection of 100+ skills costs
-thousands of tokens per session, and near-duplicate skills silently
-compete for the model's attention. skill-atlas adds a third tier between
-enabled and disabled — **searchable**: zero tokens per session, still
-findable. Skills get model-assigned categories (proposed once, approved
-by the user, then frozen), the build derives a compact catalog from
-them, and one always-enabled search skill routes any task to the right
-skill in two small reads — a category index, then a single category's
-entries — instead of one giant preload. The full spec, with every
-decision and its reason, is [DESIGN-PHASE2.md](DESIGN-PHASE2.md).
+**The catalog + search — shipped.** Claude Code injects every enabled
+skill's description into every session (~48 tokens per skill, used or
+not); a multi-plugin collection of 100+ skills costs thousands of tokens
+per session, and near-duplicate skills silently compete for the model's
+attention. skill-atlas adds a third tier between enabled and disabled —
+**searchable**: zero tokens per session, still findable. Skills get
+model-assigned categories (drafted autonomously by `/skill-atlas` at
+first run, then frozen), the build derives a compact catalog from them
+(`catalog/_index.md` + one shard per category), and one always-enabled
+`skill-search` skill routes any task to the right skill in two small
+reads — the category index, then a single category's entries — instead
+of one giant preload. A ~50-token session index line advertises the
+dormant tier. The full spec, with every decision and its reason, is
+[DESIGN-PHASE2.md](DESIGN-PHASE2.md).
 
 | Tier | In context? | Findable? | Cost / session |
 | --- | --- | --- | --- |
@@ -39,9 +41,18 @@ is in the same file.
 ## Quick start
 
 ```bash
-python3 scripts/build_graph.py   # manifests + skill roots → ~/.claude/skill-atlas/graph.json
+python3 scripts/build_graph.py   # manifests + skill roots → graph.json + catalog/ shards
 python3 scripts/render.py        # graph.json → ~/.claude/skill-atlas/atlas.html
+python3 scripts/categorize.py status            # categorization TODO list
+python3 scripts/categorize.py config --add-searchable <plugin>   # opt a disabled plugin into the searchable tier
 ```
+
+Categorization itself runs inside `/skill-atlas` (the one place a model
+is present): first run bootstraps 8–12 categories over every skill
+description and freezes the taxonomy; later runs assign new skills into
+it and re-confirm stale ones. All writes go through the validating
+`categorize.py` CLI — `categories.json` is curated state, never
+free-handed and never regenerated.
 
 Run from inside a project (any directory with its own `.claude/`), both
 scripts additionally produce a **project view** written into the project at
@@ -76,8 +87,11 @@ Two hooks keep the graph fresh; neither logs anything:
 
 - **SessionStart** — stat-only fingerprint over every SKILL.md *and* every
   manifest (installed_plugins.json, settings.json / settings.local.json,
-  each plugin.json); rebuilds on mismatch. Aborts at 2 s — a slow hook is
-  worse than a stale graph.
+  each plugin.json, plus categories.json and config.json); rebuilds graph
+  and catalog shards on mismatch. Aborts at 2 s — a slow hook is worse
+  than a stale graph. When the searchable tier is nonempty it also emits
+  the ~50-token index line into session context via the documented
+  SessionStart JSON contract — its only stdout, ever.
 - **PostToolUse (Write|Edit)** — flags the graph dirty when a skill file or
   manifest is edited; the flag is consumed at the next session start.
 
@@ -108,16 +122,19 @@ that would have is dropped (DESIGN.md §6). Two notes that still apply:
 
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `SKILL_ATLAS_HOME` | `~/.claude/skill-atlas` | artifact root — derived files only |
+| `SKILL_ATLAS_HOME` | `~/.claude/skill-atlas` | artifact root — derived files, plus curated `categories.json` and user `config.json` |
 | `SKILL_ATLAS_CLAUDE_DIR` | `~/.claude` | Claude Code config root (test seam) |
 | `SKILL_ATLAS_AUTOBUILD` | `1` | `0` disables the SessionStart staleness check |
 
-All derived files (`graph.json`, `atlas.html`) are caches: deletable at
-any time, rebuilt from scratch on the next run. If one is corrupted the
-fix is rebuild, never repair. (Phase 2 adds two files that are *not*
-caches — a curated `categories.json` and a `config.json` opt-in list;
-see DESIGN-PHASE2.md §3.4 for which files may be deleted and which may
-not.)
+All derived files (`graph.json`, `atlas.html`, `catalog/`) are caches:
+deletable at any time, rebuilt from scratch on the next run. If one is
+corrupted the fix is rebuild, never repair. Two files are *not* caches:
+**`categories.json` is curated state** — deleting it discards the frozen
+taxonomy and every assignment (back it up; a hand-edit that breaks its
+schema fails the build loud with the violations named, and
+`categorize.py import <path>` installs a corrected file after
+validation) — and `config.json` is a five-line opt-in list you can
+rewrite. See DESIGN-PHASE2.md §3.4.
 
 ## Development
 
@@ -144,10 +161,11 @@ once by `dev/fetch_d3.sh` with a pinned sha256 and inlined into
 
 - **Phase 1** — structural graph + visualization + freshness hooks:
   **complete**.
-- **Phase 2** — categorization + search: **designed**
-  ([DESIGN-PHASE2.md](DESIGN-PHASE2.md)); implementation order is catalog
-  first (schemas + validating writer, `build_graph.py` delta,
-  `/skill-atlas` bootstrap), then the search skill and the session index
-  line.
+- **Phase 2** — categorization + search: **complete**
+  ([DESIGN-PHASE2.md](DESIGN-PHASE2.md)) — validating writer +
+  `categorize.py` CLI, graph v3 (categories / staleness / searchable
+  tier), autonomous `/skill-atlas` bootstrap, catalog shards +
+  `skill-search`, session index line, and a by-category atlas view
+  (hub-and-spoke, toggleable; scope view stays the default).
 - **Usage tracking** — dropped, out of scope; the design and the
   arithmetic that killed it are recorded in DESIGN.md §6.

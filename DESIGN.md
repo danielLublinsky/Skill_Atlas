@@ -1,6 +1,6 @@
 # skill-atlas — Design Spec
 
-**Status:** Phase 1 shipped · Phase 2 (categorization + search) designed, not implemented (rev. 2026-08-06)
+**Status:** Phase 1 shipped · Phase 2 (categorization + search) shipped 2026-08-07 (spec + amendments in [DESIGN-PHASE2.md](DESIGN-PHASE2.md))
 **Scope:** Phase 1 — structural skill graph + HTML visualization + freshness hooks. Phase 2 —
 three-tier skill catalog, model-assigned categories, and a search skill, specified in
 [DESIGN-PHASE2.md](DESIGN-PHASE2.md).

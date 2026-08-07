@@ -164,8 +164,12 @@ def installed_plugins() -> list:
 def manifest_paths(cwd=None) -> list:
     """Every non-SKILL.md file the graph depends on. These join the §5.1
     fingerprint: toggling enabledPlugins or installing a plugin must not
-    leave the graph silently stale."""
-    paths = [installed_plugins_path()] + settings_paths(cwd)
+    leave the graph silently stale. Phase 2 adds the curated/config pair —
+    editing categories.json or config.json changes graph.json while touching
+    no SKILL.md (DESIGN-PHASE2 §3.3); absence hashes as "|missing", so their
+    first appearance flips the fingerprint too."""
+    paths = [installed_plugins_path(), categories_path(), config_path()] \
+        + settings_paths(cwd)
     try:
         for record in installed_plugins():
             paths.append(record["install_path"] / ".claude-plugin" / "plugin.json")

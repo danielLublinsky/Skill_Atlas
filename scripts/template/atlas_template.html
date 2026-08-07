@@ -20,6 +20,8 @@
     --scope-project: #eb6834;
     --scope-plugin: #1baf7a;
     --critical: #d03b3b;
+    --warn: #b58a2a;
+    --tier-searchable: #8a5cd6;
     --mono: "Berkeley Mono", ui-monospace, "SF Mono", "Cascadia Mono",
             "JetBrains Mono", Menlo, Consolas, monospace;
   }
@@ -39,6 +41,8 @@
       --scope-project: #d95926;
       --scope-plugin: #199e70;
       --critical: #d03b3b;
+      --warn: #d9a83a;
+      --tier-searchable: #9b6ef0;
     }
   }
   :root[data-theme="dark"] {
@@ -55,6 +59,8 @@
     --scope-project: #d95926;
     --scope-plugin: #199e70;
     --critical: #d03b3b;
+    --warn: #d9a83a;
+    --tier-searchable: #9b6ef0;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -198,6 +204,7 @@
   <label class="toggle"><input type="checkbox" id="t-mentions"> hide mentions</label>
   <label class="toggle"><input type="checkbox" id="t-dangling"> dangling only</label>
   <label class="toggle"><input type="checkbox" id="t-unregistered"> show unregistered</label>
+  <label class="toggle"><input type="checkbox" id="t-category"> category view</label>
   <details id="plugin-filter">
     <summary id="plugin-summary">plugins ▾</summary>
     <div id="plugin-menu"></div>
@@ -272,8 +279,11 @@ const ctl = {
   mentions: document.getElementById("t-mentions"),
   dangling: document.getElementById("t-dangling"),
   unregistered: document.getElementById("t-unregistered"),
+  category: document.getElementById("t-category"),
   search: document.getElementById("search"),
 };
+/* the frozen taxonomy travels in graph.json (v3) — hub tooltips read it */
+const CATEGORY_DESC = new Map((GRAPH.taxonomy || []).map(t => [t.name, t.description]));
 if (nodeTotal > 200) ctl.files.checked = true;   /* §7.4 first band */
 
 (function fillPluginFilter() {
@@ -342,7 +352,11 @@ document.getElementById("theme").addEventListener("click", () => {
     <div class="row"><span class="edge-sample"></span>references</div>
     <div class="row"><span class="edge-sample" style="border-top-style:dotted"></span>mentions</div>
     <div class="row"><span class="edge-sample" style="border-top-color:var(--critical)"></span>broken reference</div>
-    <div class="row"><span class="edge-sample" style="border-top-style:dotted;border-top-color:var(--critical)"></span>dangling mention</div>`;
+    <div class="row"><span class="edge-sample" style="border-top-style:dotted;border-top-color:var(--critical)"></span>dangling mention</div>
+    <h2>catalog</h2>
+    <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:2px solid var(--text-primary)"></span>category hub</div>
+    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
+    <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>`;
 })();
 
 /* -------------------------------- footer -------------------------------- */
@@ -358,6 +372,13 @@ document.getElementById("theme").addEventListener("click", () => {
     parts.push(`<span class="warn">duplicate names: ${s.duplicate_names.join(", ")}</span>`);
   if (s.dangling || s.broken_refs)
     parts.push(`<span class="warn">${s.dangling} dangling · ${s.broken_refs} broken refs</span>`);
+  /* TODO states, not defects — plain text, no warn class (DESIGN-PHASE2 §3.3) */
+  if (s.uncategorized || s.stale_categories) {
+    const todo = [];
+    if (s.uncategorized) todo.push(`${s.uncategorized} uncategorized`);
+    if (s.stale_categories) todo.push(`${s.stale_categories} stale categories`);
+    parts.push(`${todo.join(" · ")} — run /skill-atlas`);
+  }
   if (META.stale) parts.push(`<span class="warn">⚠ graph.json is older than the newest SKILL.md or manifest — rebuild</span>`);
   document.getElementById("footer").innerHTML = parts.map(p => `<span>${p}</span>`).join("");
 })();
@@ -371,9 +392,11 @@ function buildTable() {
   });
   const rows = allNodes.filter(n => n.type === "skill" && !n.unregDisplay).map(n => ({
     name: n.name, id: n.id, scope: n.scope || "", plugin: n.plugin || "",
-    enabled: n.enabled ? "yes" : "no", degree: degree.get(n.id) || 0,
+    tier: n.enabled ? "enabled" : (n.searchable ? "searchable" : "off"),
+    categories: (n.categories || []).join(", "),
+    degree: degree.get(n.id) || 0,
   }));
-  const cols = ["name", "scope", "plugin", "enabled", "degree"];
+  const cols = ["name", "scope", "plugin", "tier", "categories", "degree"];
   let sortKey = "name", asc = true;
   const container = document.getElementById("tableview");
   function draw() {
@@ -433,11 +456,31 @@ function visibleModel() {
   });
   const present = new Set(nodes.map(n => n.id));
   edges = edges.filter(e => present.has(e.source) && present.has(e.target));
+
+  /* category view (§7.1): synthesize one hub per category present among the
+     visible skills, plus membership edges. Hubs live in the picture, never
+     in graph.json; multi-category skills hang between their hubs. */
+  if (ctl.category.checked) {
+    const hubs = new Map();
+    const memberEdges = [];
+    nodes.forEach(n => {
+      if (n.type !== "skill" || n.unregDisplay || n.dangling) return;
+      const cats = (n.categories && n.categories.length) ? n.categories : ["uncategorized"];
+      cats.forEach((c, i) => {
+        if (!hubs.has(c)) hubs.set(c, { id: "cat:" + c, type: "cat", name: c, count: 0 });
+        hubs.get(c).count += 1;
+        memberEdges.push({ source: n.id, target: "cat:" + c, kind: "member", home: i === 0 });
+      });
+    });
+    nodes = nodes.concat([...hubs.values()].sort((a, b) => (a.name < b.name ? -1 : 1)));
+    edges = edges.concat(memberEdges);
+  }
   return { nodes, edges };
 }
 
 function nodeSize(n) {
   if (n.type === "file") return { r: 4.5 };
+  if (n.type === "cat") return { r: 14 + 3 * Math.sqrt(n.count || 1) };
   const w = Math.max(52, 14 + n.name.length * 6.2);
   return { w: w, h: 22 };
 }
@@ -452,15 +495,20 @@ function drawGraph() {
   const height = document.getElementById("stage").clientHeight || 800;
 
   /* one cluster centre per filter group (plugin name, or scope for
-     user/project/built-in skills); files inherit the group of a skill
-     that references them so bundles stay with their plugin */
+     user/project/built-in skills); in category view the home category
+     clusters instead, and hubs anchor their own cluster. Files inherit the
+     group of a skill that references them so bundles stay with their owner */
+  const catMode = ctl.category.checked;
+  const homeKey = n => (n.categories && n.categories.length) ? n.categories[0] : "uncategorized";
+  const skillKey = n => catMode ? homeKey(n) : groupOf(n);
   const fileGroup = new Map();
   edges.forEach(e => {
     if (e.kind !== "references") return;
     const s = nodeById.get(e.source);
-    if (s && s.type === "skill") fileGroup.set(e.target, groupOf(s));
+    if (s && s.type === "skill") fileGroup.set(e.target, skillKey(s));
   });
-  const clusterKey = n => n.type === "file" ? (fileGroup.get(n.id) || "file") : groupOf(n);
+  const clusterKey = n => n.type === "file" ? (fileGroup.get(n.id) || "file")
+    : n.type === "cat" ? n.name : skillKey(n);
   const groupNames = [...new Set(nodes.map(clusterKey))].sort();
   const centers = new Map();
   const R = Math.min(width, height) * Math.min(0.62, 0.3 + groupNames.length * 0.045);
@@ -478,13 +526,14 @@ function drawGraph() {
     n.x = c[0] + ((h % 997) / 997 - 0.5) * 160;
     n.y = c[1] + (((h >> 10) % 997) / 997 - 0.5) * 160;
     const size = nodeSize(n);
-    n._w = size.w || 9; n._h = size.h || 9;
+    n._w = size.w || (size.r ? size.r * 2 : 9); n._h = size.h || 9;
   });
 
-  /* orphans pinned to a labelled gutter — a primary finding, not driftwood (§7.2) */
+  /* orphans pinned to a labelled gutter — a primary finding, not driftwood
+     (§7.2). Skipped in category view: the uncategorized hub is their home */
   const orphanIds = new Set(GRAPH.stats.orphan_ids || []);
   let gyLeft = 70;
-  nodes.forEach(n => {
+  if (!catMode) nodes.forEach(n => {
     if (orphanIds.has(n.id) && !n.unregDisplay) { n.fx = 90; n.fy = gyLeft; gyLeft += 34; n._gutter = true; }
   });
   /* unregistered gutter stacks below the orphans, left side — the legend
@@ -503,11 +552,12 @@ function drawGraph() {
   sim = d3.forceSimulation(nodes)
     .randomSource(rng)
     .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
-      .id(d => d.id).distance(e => e.kind === "references" ? 85 : 170).strength(0.5))
+      .id(d => d.id).distance(e => e.kind === "references" ? 85 : e.kind === "member" ? 110 : 170).strength(0.5))
     .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
     .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
     .force("y", d3.forceY(d => centerOf(d)[1]).strength(d => d.type === "file" ? 0.05 : 0.11))
-    .force("collide", d3.forceCollide(d => d.type === "file" ? 11 : d._w * 0.42 + 14).iterations(2))
+    .force("collide", d3.forceCollide(d => d.type === "file" ? 11
+      : d.type === "cat" ? d._w / 2 + 26 : d._w * 0.42 + 14).iterations(2))
     .stop();
   const simEdges = sim.force("link").links();
   for (let i = 0; i < 300; i++) sim.tick();   /* deterministic warm-up → same opening picture twice */
@@ -527,19 +577,21 @@ function drawGraph() {
     .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x).attr("y2", d => d.target.y)
     .attr("stroke", d => (d.broken || d.kind === "dangling") ? "var(--critical)" : "var(--baseline)")
-    .attr("stroke-width", 1.4)
-    .attr("stroke-dasharray", d => d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null)
-    .attr("opacity", 0.75);
+    .attr("stroke-width", d => d.kind === "member" ? 1.2 : 1.4)
+    .attr("stroke-dasharray", d => d.kind === "member" ? (d.home ? null : "1,3")
+      : (d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null))
+    .attr("opacity", d => d.kind === "member" ? (d.home ? 0.5 : 0.3) : 0.75);
 
   if (nodes.some(n => n.fx !== undefined && orphanIds.has(n.id)))
     viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", 44).text("orphans");
   if (unregLabelY !== null)
     viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", unregLabelY).text("unregistered");
 
-  /* faint caption over each cluster, behind the edges */
+  /* faint caption over each cluster, behind the edges — redundant in
+     category view, where the hubs carry their own labels */
   const captionLayer = viewport.insert("g", ":first-child");
   groupNames.forEach(g => {
-    if (g === "file") return;
+    if (g === "file" || catMode) return;
     const members = nodes.filter(n => clusterKey(n) === g && n.type === "skill" && !n._gutter);
     if (!members.length) return;
     const mx = members.reduce((s, n) => s + n.x, 0) / members.length;
@@ -562,6 +614,17 @@ function drawGraph() {
         .attr("stroke-width", 1.4);
       return;
     }
+    if (d.type === "cat") {
+      const r = nodeSize(d).r;
+      g.append("circle").attr("r", r)
+        .attr("fill", "var(--surface-1)")
+        .attr("stroke", "var(--text-primary)").attr("stroke-width", 2);
+      g.append("text").attr("class", "nodelabel")
+        .attr("text-anchor", "middle").attr("y", r + 13)
+        .style("font-weight", "700")
+        .text(`${d.name} (${d.count})`);
+      return;
+    }
     const { w, h } = nodeSize(d);
     const color = SCOPE_COLOR[d.scope] || "var(--text-muted)";
     g.append("rect")
@@ -571,6 +634,17 @@ function drawGraph() {
       .attr("stroke", d.dangling ? "var(--text-muted)" : color)
       .attr("stroke-width", d.enabled ? 1.6 : 1.3)
       .attr("stroke-dasharray", d.dangling ? "4,3" : null);
+    /* searchable halo: dormant-but-findable is its own channel, distinct
+       from both enabled fill and plain-disabled hollow (§7.2) */
+    if (d.searchable)
+      g.append("rect")
+        .attr("x", -w / 2 - 3).attr("y", -h / 2 - 3)
+        .attr("width", w + 6).attr("height", h + 6).attr("rx", 5)
+        .attr("fill", "none").attr("stroke", "var(--tier-searchable)")
+        .attr("stroke-width", 1.3);
+    if (d.category_stale)
+      g.append("circle").attr("cx", w / 2 - 3).attr("cy", -h / 2 + 3)
+        .attr("r", 3).attr("fill", "var(--warn)");
     g.append("text").attr("class", "nodelabel")
       .attr("text-anchor", "middle").attr("dy", "0.34em")
       .style("fill", d.enabled ? "var(--text-primary)" : "var(--text-muted)")
@@ -598,14 +672,22 @@ function drawGraph() {
   function unfocus() { nodeSel.classed("dim", false); edgeSel.classed("dim", false); }
 
   nodeSel.on("mouseenter", (ev, d) => {
-    tooltip.innerHTML = `
+    if (d.type === "cat") {
+      const desc = CATEGORY_DESC.get(d.name) ||
+        (d.name === "uncategorized" ? "skills not yet categorized — run /skill-atlas" : "");
+      tooltip.innerHTML = `<div class="tt-id">${d.name} (${d.count})</div>` +
+        (desc ? `<div>${desc}</div>` : "");
+    } else {
+      tooltip.innerHTML = `
       <div class="tt-id">${d.id}</div>
       ${d.description ? `<div>${d.description}</div>` : ""}
       <div>${d.type === "file" ? "bundled file" : (d.scope || "")}` +
       `${d.plugin ? " · " + d.plugin + (d.version ? " " + d.version : "") : ""}` +
-      `${d.type !== "file" ? " · " + (d.enabled ? "enabled" : "disabled") : ""}` +
+      `${d.type !== "file" ? " · " + (d.enabled ? "enabled" : (d.searchable ? "searchable" : "disabled")) : ""}` +
+      `${d.type !== "file" && d.categories && d.categories.length ? " · " + d.categories.join(", ") + (d.category_stale ? " (stale)" : "") : ""}` +
       `${d.registered === false ? " · unregistered" : ""}</div>
       ${d.path ? `<div class="tt-path">${d.path}</div>` : `<div class="tt-path">no file on disk</div>`}`;
+    }
     tooltip.style.display = "block";
     if (!pinned) focus(d.id);
   }).on("mousemove", ev => {
@@ -644,7 +726,19 @@ function drawGraph() {
   function applySearch() {
     const q = ctl.search.value.trim().toLowerCase();
     if (!q) { if (!pinned) unfocus(); return; }
-    nodeSel.classed("dim", d =>
+    /* cat:<name> filters to one category's members (§7.2) */
+    if (q.startsWith("cat:")) {
+      const cat = q.slice(4).trim();
+      nodeSel.classed("dim", d => {
+        if (d.type === "cat") return d.name !== cat;
+        if (d.type !== "skill") return true;
+        const cats = (d.categories && d.categories.length) ? d.categories : ["uncategorized"];
+        return !cats.includes(cat);
+      });
+      edgeSel.classed("dim", true);
+      return;
+    }
+    nodeSel.classed("dim", d => d.type === "cat" ? false :
       !(d.name.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q) || d.id.toLowerCase().includes(q)));
     edgeSel.classed("dim", true);
   }
@@ -671,6 +765,15 @@ if (useTable) {
 }
 [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c =>
   c.addEventListener("change", drawGraph));
+/* entering category view hides files once (§7.1); the toggle brings them back */
+let catFilesDefaulted = false;
+ctl.category.addEventListener("change", () => {
+  if (ctl.category.checked && !catFilesDefaulted) {
+    catFilesDefaulted = true;
+    ctl.files.checked = true;
+  }
+  drawGraph();
+});
 window.addEventListener("resize", () => { if (!useTable) drawGraph(); });
 </script>
 </body>

@@ -17,6 +17,10 @@ PATTERNS = (
     "*/.claude/settings.json",
     "*/.claude/settings.local.json",
     "*/.claude/plugins/installed_plugins.json",
+    # Phase 2 build inputs (hand-written — this file deliberately cannot
+    # import atlas_paths, same as the manifest patterns above).
+    "*/skill-atlas/categories.json",
+    "*/skill-atlas/config.json",
 )
 
 

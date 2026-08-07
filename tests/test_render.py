@@ -73,6 +73,27 @@ class TestRender(unittest.TestCase):
             self.assertIn("<title>skill-atlas</title>",
                           global_out.read_text(encoding="utf-8"))
 
+    def test_category_view_data_and_markup(self):
+        # M6: v3 fields round-trip into the page, and the category-view
+        # machinery is present (force-layout behavior is validated live).
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_categories(
+                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
+            helpers.write_config(sandbox, helpers.searchable_config("beta"))
+            html = _render(sandbox)
+            nodes = {n["id"]: n for n in _data_block(html)["graph"]["nodes"]}
+            self.assertEqual(nodes["alpha:two"]["categories"], ["eng", "docs"])
+            self.assertFalse(nodes["alpha:two"]["category_stale"])
+            self.assertTrue(nodes["beta:x"]["searchable"])
+            taxonomy = _data_block(html)["graph"]["taxonomy"]
+            self.assertEqual([t["name"] for t in taxonomy], ["eng", "docs"])
+            # Static template assertions at the M6 seams.
+            self.assertIn('id="t-category"', html)
+            self.assertIn('"cat:"', html)          # hub synthesis marker
+            self.assertIn("--tier-searchable", html)
+            self.assertIn("category hub", html)     # legend row
+            self.assertIn("searchable (dormant)", html)
+
     def test_stale_flag_when_skill_newer_than_graph(self):
         import os
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:

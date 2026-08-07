@@ -19,11 +19,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import atlas_categories
 import atlas_discovery
 import atlas_extract
 import atlas_fingerprint
 import atlas_io
 import atlas_paths
+import atlas_shards
 
 
 def _classify_mention(source, token, registered_by_id, by_name, unreg_lookup,
@@ -61,6 +63,26 @@ def build(cwd=None) -> tuple:
     skills = discovery["skills"]
     unregistered = discovery["unregistered"]
     plugin_names = {p["name"] for p in discovery["plugins"]}
+
+    # Phase 2 annotation (DESIGN-PHASE2 §3.3): categories, staleness and the
+    # searchable tier ride every skill record from here on, so node assembly,
+    # stats and the renderer see them for free. Curated-state schema
+    # violations raise CategoriesError — fail loud, exit 2 via main(). A
+    # stale desc_hash keeps its labels in effect; an assignment whose skill
+    # left the graph is environmental drift, surfaced as orphan_assignments.
+    categories = atlas_categories.load_categories_strict()
+    config = atlas_categories.load_config_strict()
+    assignments = categories["assignments"]
+    searchable_plugins = set(config["searchable_plugins"])
+    for skill in skills:
+        entry = assignments.get(skill["id"])
+        skill["categories"] = list(entry["categories"]) if entry else []
+        skill["category_stale"] = bool(entry) and (
+            entry["desc_hash"] != atlas_categories.desc_hash(skill.get("description")))
+        skill["searchable"] = (
+            skill["scope"] == "plugin"
+            and (skill["plugin"] in searchable_plugins
+                 or skill["plugin_key"] in searchable_plugins))
 
     registered_by_id = {s["id"]: s for s in skills}
     by_name = {}
@@ -146,14 +168,27 @@ def build(cwd=None) -> tuple:
              + [dangling_nodes[k] for k in sorted(dangling_nodes)]
              + [file_nodes[k] for k in sorted(file_nodes)])
 
+    orphan_assignments = sorted(set(assignments) - {s["id"] for s in skills})
+    # The search-facing rollup covers tiers 1+2 only (enabled or searchable);
+    # tier-off skills are never search-visible. Zero-count categories are
+    # kept: the frozen taxonomy is a stable index shape.
+    catalog_skills = [s for s in skills if s["enabled"] or s["searchable"]]
+    catalog_counts = {entry["name"]: 0 for entry in categories["taxonomy"]}
+    for skill in catalog_skills:
+        for label in skill["categories"]:
+            catalog_counts[label] += 1
+
     graph = {
-        "version": 2,
+        "version": 3,
         "generated_at": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "view": "project" if cwd else "global",
         "project": Path(cwd).resolve().name if cwd else None,
         "roots": discovery["roots"],
         "source_fingerprint": fingerprint,
+        # The frozen taxonomy rides along so shards and the category view
+        # derive from graph.json alone — one source of truth.
+        "taxonomy": categories["taxonomy"],
         "nodes": nodes,
         "edges": edges,
         # Indexed, not drawn (§4.1) — the visualization's "show unregistered"
@@ -175,6 +210,18 @@ def build(cwd=None) -> tuple:
             "orphan_ids": sorted(orphans),
             "duplicate_names": discovery["duplicate_names"],
             "skillmd_on_disk": atlas_discovery.naive_skillmd_count(cwd),
+            # TODO states for the next /skill-atlas run — never defects, so
+            # never part of the exit code (DESIGN-PHASE2 §3.3).
+            "uncategorized": sum(1 for s in skills if not s["categories"]),
+            "stale_categories": sum(1 for s in skills if s["category_stale"]),
+            "searchable": sum(1 for s in skills if s["searchable"]),
+            "orphan_assignments": orphan_assignments,
+            "catalog": {
+                "dormant": sum(1 for s in catalog_skills if not s["enabled"]),
+                "categories": catalog_counts,
+                "uncategorized": sum(1 for s in catalog_skills
+                                     if not s["categories"]),
+            },
         },
     }
     exit_code = 1 if (broken_refs or dangling_edges) else 0
@@ -184,8 +231,14 @@ def build(cwd=None) -> tuple:
 def report(graph, stream=sys.stdout):
     stats = graph["stats"]
     label = ("project:" + graph["project"]) if graph["view"] == "project" else "global"
+    todo = []
+    if stats["uncategorized"]:
+        todo.append(f"{stats['uncategorized']} uncategorized")
+    if stats["stale_categories"]:
+        todo.append(f"{stats['stale_categories']} stale categories")
+    todo_text = (", " + ", ".join(todo)) if todo else ""
     print(f"skill-atlas [{label}]: {stats['skills']} skills ({stats['enabled']} enabled), "
-          f"{stats['files']} files, {stats['edges']} edges "
+          f"{stats['files']} files, {stats['edges']} edges{todo_text} "
           f"[naive on-disk count: {stats['skillmd_on_disk']}]", file=stream)
     if stats["duplicate_names"]:
         print(f"  duplicate names: {', '.join(stats['duplicate_names'])}", file=stream)
@@ -233,6 +286,10 @@ def main(argv=None) -> int:
             worst = max(worst, exit_code)
             if not args.check:
                 atlas_io.atomic_write_json(out_path, graph)
+                if view_cwd is None:
+                    # Search shards derive from the global view only
+                    # (project-faceted shards deferred, DESIGN-PHASE2 §10.4).
+                    atlas_shards.emit(graph)
             if not args.quiet:
                 report(graph)
         if not args.check:
@@ -240,6 +297,17 @@ def main(argv=None) -> int:
                 atlas_paths.dirty_path().unlink()
             except OSError:
                 pass
+    except atlas_categories.CategoriesError as exc:
+        # Decision: invalid CURATED state fails loud, naming every violation
+        # (the file is the user's own — this is not the debug.log privacy
+        # boundary, which still records the type only).
+        atlas_io.debug_log("build_graph", cwd, 0, exc)
+        for line in exc.errors:
+            print(f"skill-atlas: {exc.source}: {line}", file=sys.stderr)
+        print(f"skill-atlas: build failed: invalid {exc.source} — fix it by hand, "
+              "restore a backup, or install a corrected file with "
+              "categorize.py import", file=sys.stderr)
+        return 2
     except Exception as exc:
         atlas_io.debug_log("build_graph", cwd, 0, exc)
         print(f"skill-atlas: build failed: {type(exc).__name__}", file=sys.stderr)

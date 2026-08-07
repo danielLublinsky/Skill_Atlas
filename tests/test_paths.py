@@ -85,6 +85,9 @@ class TestInstalledPlugins(unittest.TestCase):
             self.assertIn(sandbox.claude / "settings.local.json", paths)
             self.assertIn(Path("/some/project/.claude/settings.json"), paths)
             self.assertIn(Path("/x/alpha/1.0.0/.claude-plugin/plugin.json"), paths)
+            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3).
+            self.assertIn(atlas_paths.categories_path(), paths)
+            self.assertIn(atlas_paths.config_path(), paths)
 
 
 class TestProjectPaths(unittest.TestCase):
@@ -107,6 +110,17 @@ class TestProjectPaths(unittest.TestCase):
                          home / "graph.json")
         self.assertEqual(atlas_paths.project_atlas_path("/x/proj"),
                          home / "atlas.html")
+
+
+class TestPhase2Paths(unittest.TestCase):
+    def test_artifact_paths_under_home(self):
+        with helpers.EnvSandbox():
+            home = atlas_paths.atlas_home()
+            self.assertEqual(atlas_paths.categories_path(), home / "categories.json")
+            self.assertEqual(atlas_paths.config_path(), home / "config.json")
+            self.assertEqual(atlas_paths.catalog_dir(), home / "catalog")
+            self.assertEqual(atlas_paths.catalog_index_path(),
+                             home / "catalog" / "_index.md")
 
 
 class TestAtomicIO(unittest.TestCase):

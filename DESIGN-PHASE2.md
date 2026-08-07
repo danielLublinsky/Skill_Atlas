@@ -1,11 +1,48 @@
 # skill-atlas — Phase 2 Design: Categorization + Search
 
-**Status:** designed 2026-08-06 — not implemented
+**Status:** implemented 2026-08-07 (all six milestones; amendments in §0 below)
 **Parent:** [DESIGN.md](DESIGN.md) — Phase 1's graph model (§3), discovery (§4.1) and freshness
 machinery (§5) are assumed throughout and are not restated here.
 **Naming note:** "Phase 2" previously named usage tracking, which was fully specified and then
 dropped the same day this phase was designed (DESIGN.md §0.4, §6). This phase reuses the number;
 it revives nothing from that design. Nothing here reads `~/.claude/projects`.
+
+---
+
+## 0. Implementation amendments — 2026-08-07
+
+Decided with the user during implementation planning; the body text below is left as designed,
+and these amendments override it where they conflict.
+
+1. **Bootstrap is autonomous — the §4.1 approval step is removed for now.** `/skill-atlas`
+   drafts the taxonomy AND writes the full categorization in one run, reporting the result
+   informationally. The taxonomy still freezes at bootstrap — for search stability, not
+   approval — and later runs assign into it. When nothing fits, the model adds a category via
+   the explicit `add-category` CLI act and calls it out in the report: additions are always
+   visible, never silent. Editing/curation workflows come later (amendment 3).
+2. **Scope view stays the atlas default.** §7.1's "new default view" is amended: the
+   by-category view is an explicit toggle; Phase 1's scope clustering remains the opening
+   picture.
+3. **Future editing direction: export/download from the HTML.** categories.json is hand-editable
+   curated state, and the long-term plan is editing it in the atlas page (rename categories,
+   drag skills) with a download of the resulting categories.json — a static file:// page cannot
+   write to disk. `categorize.py import <path>` exists now as the validated landing pad; the
+   File System Access API is a possible Chromium-only one-click-save enhancement later.
+4. **Invalid hand-edits fail loud.** A present-but-invalid categories.json or config.json fails
+   the build with exit 2 naming every violation (same class as an unparseable manifest) — no
+   tolerate-and-degrade for curated state. Boundary: environmental drift is not an edit error.
+   An assignment whose skill left the graph is reported as `orphan_assignments` and skipped;
+   a stale `desc_hash` is the designed stale state. The SessionStart hook never breaks a
+   session: it swallows the failure, keeps the last-good graph, and the explicit build is where
+   the violations print.
+5. **The frozen taxonomy rides in graph.json** (top-level `taxonomy` key, v3). The stage-1
+   index needs the curated category descriptions; carrying them in the graph keeps shard
+   emission and the category view single-source (graph.json only), as §5 intended.
+6. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
+   `_index.md` ≈ 650 tokens (above the §5 estimate — the derived token lists are what grew it),
+   shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one
+   shard ≈ 1.2–1.7k tokens, versus ~5k+ for a flat catalog read — the §5 arbitrage holds. The
+   session index line measured 216 chars ≈ 54 tokens with all ten categories listed.
 
 ---
 

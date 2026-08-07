@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import unittest
 
@@ -106,7 +108,7 @@ class TestGraphBuild(unittest.TestCase):
             code = build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             self.assertEqual(code, 1)
             graph = json.loads(atlas_paths.graph_path().read_text())
-            self.assertEqual(graph["version"], 2)
+            self.assertEqual(graph["version"], 3)
             self.assertFalse(atlas_paths.dirty_path().exists())
             leftovers = [p for p in atlas_paths.atlas_home().iterdir()
                          if p.suffix == ".tmp"]
@@ -189,6 +191,107 @@ class TestDualViews(unittest.TestCase):
             self.assertTrue(atlas_paths.graph_path().exists())
             self.assertFalse((sandbox.tmp / ".claude").exists())
 
+
+class TestCategoryMerge(unittest.TestCase):
+    def test_category_merge_and_stats(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_categories(
+                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
+            graph, code = _build(sandbox)
+            self.assertEqual(code, 1)  # fixture defects unchanged by Phase 2
+            by_id = {n["id"]: n for n in graph["nodes"]}
+            self.assertEqual(by_id["alpha:two"]["categories"], ["eng", "docs"])
+            self.assertFalse(by_id["alpha:two"]["category_stale"])
+            self.assertEqual(by_id["graphify@user"]["categories"], [])
+            stats = graph["stats"]
+            self.assertEqual(stats["uncategorized"], 4)  # 8 skills, 4 assigned
+            self.assertEqual(stats["stale_categories"], 0)
+            # Catalog covers tiers 1+2 only: beta is disabled and not opted
+            # in, so its assigned beta:x contributes nothing.
+            self.assertEqual(stats["catalog"]["dormant"], 0)
+            self.assertEqual(stats["catalog"]["categories"], {"eng": 2, "docs": 2})
+
+    def test_no_phase2_files_all_defaults(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            graph, code = _build(sandbox)
+            self.assertEqual(code, 1)
+            for node in graph["nodes"]:
+                if node.get("type") == "skill" and node.get("registered"):
+                    self.assertEqual(node["categories"], [])
+                    self.assertFalse(node["searchable"])
+            stats = graph["stats"]
+            self.assertEqual(stats["catalog"],
+                             {"dormant": 0, "categories": {},
+                              "uncategorized": stats["enabled"]})
+
+    def test_stale_hash_keeps_labels(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj["assignments"]["alpha:one"]["desc_hash"] = \
+                "sha256:" + "0" * 64
+            helpers.write_categories(sandbox, obj)
+            graph, _ = _build(sandbox)
+            node = next(n for n in graph["nodes"] if n["id"] == "alpha:one")
+            self.assertTrue(node["category_stale"])
+            self.assertEqual(node["categories"], ["eng"])  # labels stay live
+            self.assertEqual(graph["stats"]["stale_categories"], 1)
+
+    def test_orphaned_label_fails_build_loud(self):
+        # A hand-rename that leaves assignments pointing at a category that
+        # no longer exists is a curated-state defect: exit 2, named.
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj["taxonomy"][0]["name"] = "engineering"  # orphans "eng" labels
+            helpers.write_categories(sandbox, obj)
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                code = build_graph.main(["--cwd", str(sandbox.project_dir),
+                                         "--quiet"])
+            self.assertEqual(code, 2)
+            self.assertIn("'eng' is not in the taxonomy", stderr.getvalue())
+
+    def test_unknown_assignment_id_is_environmental(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj["assignments"]["ghost:skill"] = {
+                "categories": ["eng"], "desc_hash": "sha256:" + "0" * 64,
+                "assigned_at": "2026-08-07"}
+            helpers.write_categories(sandbox, obj)
+            graph, code = _build(sandbox)
+            self.assertEqual(code, 1)  # never fatal
+            self.assertEqual(graph["stats"]["orphan_assignments"], ["ghost:skill"])
+
+    def test_searchable_tier_from_config(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_categories(
+                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
+            helpers.write_config(sandbox, helpers.searchable_config("beta", "alpha"))
+            graph, _ = _build(sandbox)
+            by_id = {n["id"]: n for n in graph["nodes"]}
+            self.assertTrue(by_id["beta:x"]["searchable"])
+            self.assertFalse(by_id["beta:x"]["enabled"])
+            # Recorded even when enabled is also true; tier derivation is
+            # the reader's job (enabled wins).
+            self.assertTrue(by_id["alpha:one"]["searchable"])
+            self.assertFalse(by_id["plain-skill"]["searchable"])  # user scope
+            stats = graph["stats"]
+            self.assertEqual(stats["searchable"], 4)
+            self.assertEqual(stats["catalog"]["dormant"], 2)  # beta:x, beta:y
+            self.assertEqual(stats["catalog"]["categories"], {"eng": 3, "docs": 2})
+
+    def test_malformed_categories_exits_2(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            atlas_paths.atlas_home().mkdir(parents=True, exist_ok=True)
+            atlas_paths.categories_path().write_text("{broken")
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                code = build_graph.main(["--cwd", str(sandbox.project_dir),
+                                         "--quiet"])
+            self.assertEqual(code, 2)
+            self.assertIn("categories.json", stderr.getvalue())
+
+
+class TestMentionDedup(unittest.TestCase):
     def test_same_target_via_two_forms_is_one_edge(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             one = (sandbox.claude / "plugins" / "cache" / "fake-mp" / "alpha"
