@@ -231,6 +231,15 @@
      survive the dimming of everything else */
   svg line.hot { opacity: 1; stroke-width: 2.6px; }
   svg line.hot:not(.broken) { stroke: var(--text-primary); }
+  /* a bundled file is a 4.5px dot — too small to read a size change, so it
+     lights up instead: brighter body, a ring that wasn't there before */
+  svg .filedot { transition: fill 120ms linear, stroke 120ms linear,
+    stroke-width 120ms linear; }
+  svg g.node.lit .filedot { stroke-width: 2.2px; }
+  svg g.node.lit .filedot:not(.missing) {
+    fill: var(--text-secondary); stroke: var(--text-primary);
+  }
+  @media (prefers-reduced-motion: reduce) { svg .filedot { transition: none; } }
 </style>
 </head>
 <body>
@@ -594,29 +603,27 @@ function drawGraph() {
     const h = hashCode(n.id);
     n.x = c[0] + ((h % 997) / 997 - 0.5) * 160;
     n.y = c[1] + (((h >> 10) % 997) / 997 - 0.5) * 160;
+    n.fx = null; n.fy = null; n._gutter = false;
     const size = nodeSize(n);
     n._w = size.w || (size.r ? size.r * 2 : 9); n._h = size.h || 9;
   });
 
   /* orphans float free as ordinary nodes (amended — no gutter); with no
-     edges, the cluster forces settle them near their own group */
-  let gyLeft = 70;
-  /* unregistered gutter stacks below the orphans, left side — the legend
-     owns the top-right corner */
-  let unregLabelY = null;
-  if (ctl.unregistered.checked) {
-    const unregNodes = nodes.filter(n => n.unregDisplay);
-    if (unregNodes.length) {
-      gyLeft += 18;
-      unregLabelY = gyLeft;
-      gyLeft += 22;
-      unregNodes.forEach(n => { n.fx = 110; n.fy = gyLeft; gyLeft += 30; n._gutter = true; });
-    }
-  }
+     edges, the cluster forces settle them near their own group.
+     Unregistered skills are the one exception: they aren't part of the
+     graph's structure, so they're held out of the simulation entirely and
+     stacked in a lane placed clear of the settled layout — pinned inside it
+     they collided with real clusters and read as members of one. */
+  const gutterNodes = ctl.unregistered.checked ? nodes.filter(n => n.unregDisplay) : [];
+  gutterNodes.forEach(n => { n._gutter = true; });
+  const simNodes = nodes.filter(n => !n._gutter);
+  const simIds = new Set(simNodes.map(n => n.id));
 
-  sim = d3.forceSimulation(nodes)
+  sim = d3.forceSimulation(simNodes)
     .randomSource(rng)
-    .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
+    .force("link", d3.forceLink(edges
+        .filter(e => simIds.has(e.source) && simIds.has(e.target))
+        .map(e => Object.assign({}, e)))
       .id(d => d.id).distance(e => e.kind === "references" ? 85 : e.kind === "member" ? 110 : 170).strength(0.5))
     .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
     .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
@@ -626,6 +633,22 @@ function drawGraph() {
     .stop();
   const simEdges = sim.force("link").links();
   for (let i = 0; i < 300; i++) sim.tick();   /* deterministic warm-up → same opening picture twice */
+
+  /* the lane goes to the left of everything the simulation settled, with a
+     rule marking the boundary it must not cross */
+  let unregLabelY = null, unregRule = null;
+  if (gutterNodes.length) {
+    const laneW = Math.max(...gutterNodes.map(n => n._w));
+    const left = simNodes.length
+      ? Math.min(...simNodes.map(n => n.x - n._w / 2)) : width / 2;
+    const top = simNodes.length ? Math.min(...simNodes.map(n => n.y)) : height / 2;
+    const laneX = left - 100 - laneW / 2;
+    unregLabelY = top;
+    unregRule = { x: left - 50, y0: top - 20,
+                  y1: top + 26 + gutterNodes.length * 30 };
+    let y = top + 26;
+    gutterNodes.forEach(n => { n.fx = n.x = laneX; n.fy = n.y = y; y += 30; });
+  }
 
   /* fit the settled layout into the viewport */
   if (nodes.length) {
@@ -648,8 +671,16 @@ function drawGraph() {
       : (d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null))
     .attr("opacity", d => d.kind === "member" ? (d.home ? 0.5 : 0.3) : 0.75);
 
-  if (unregLabelY !== null)
-    viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", unregLabelY).text("unregistered");
+  if (unregLabelY !== null) {
+    viewport.append("line")
+      .attr("x1", unregRule.x).attr("y1", unregRule.y0)
+      .attr("x2", unregRule.x).attr("y2", unregRule.y1)
+      .attr("stroke", "var(--grid)").attr("stroke-width", 1)
+      .attr("stroke-dasharray", "3,5");
+    viewport.append("text").attr("class", "gutterlabel")
+      .attr("text-anchor", "end").attr("x", unregRule.x - 14)
+      .attr("y", unregLabelY).text("unregistered");
+  }
 
   /* faint caption over each cluster, behind the edges — redundant in
      category view, where the hubs carry their own labels */
@@ -673,7 +704,8 @@ function drawGraph() {
     const g = d3.select(this);
     if (d.type === "file") {
       g.append("circle").attr("r", 4.5)
-        .attr("fill", d.exists === false ? "transparent" : "var(--text-muted)")
+        .attr("class", d.exists === false ? "filedot missing" : "filedot")
+        .attr("fill", d.exists === false ? "var(--surface-1)" : "var(--text-muted)")
         .attr("stroke", d.exists === false ? "var(--critical)" : "var(--text-muted)")
         .attr("stroke-width", 1.4);
       return;
@@ -691,10 +723,13 @@ function drawGraph() {
     }
     const { w, h } = nodeSize(d);
     const color = SCOPE_COLOR[d.scope] || "var(--text-muted)";
+    /* disabled skills read hollow but are painted with the stage colour, not
+       left transparent: edges run to the node centre, and a see-through box
+       let them cross the label */
     g.append("rect")
       .attr("x", -w / 2).attr("y", -h / 2).attr("width", w).attr("height", h)
       .attr("rx", 3)
-      .attr("fill", d.enabled ? `color-mix(in srgb, ${color} 30%, var(--surface-1))` : "transparent")
+      .attr("fill", d.enabled ? `color-mix(in srgb, ${color} 30%, var(--surface-1))` : "var(--surface-1)")
       .attr("stroke", d.dangling ? "var(--text-muted)" : color)
       .attr("stroke-width", d.enabled ? 1.6 : 1.3)
       .attr("stroke-dasharray", d.dangling ? "4,3" : null);
@@ -736,11 +771,11 @@ function drawGraph() {
   function focus(id) {
     const incident = d => d.source.id === id || d.target.id === id;
     const hood = new Set([id, ...(neighbor.get(id) || [])]);
-    nodeSel.classed("dim", d => !hood.has(d.id));
+    nodeSel.classed("dim", d => !hood.has(d.id)).classed("lit", d => hood.has(d.id));
     edgeSel.classed("dim", d => !incident(d)).classed("hot", incident);
   }
   function unfocus() {
-    nodeSel.classed("dim", false);
+    nodeSel.classed("dim", false).classed("lit", false);
     edgeSel.classed("dim", false).classed("hot", false);
   }
 
@@ -778,7 +813,12 @@ function drawGraph() {
       if (!ev.active) sim.alphaTarget(0.3).restart();
       d.fx = d.x; d.fy = d.y;
     })
-    .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+    /* gutter nodes sit outside the simulation, so nothing copies fx→x for
+       them — the drag has to move them itself */
+    .on("drag", (ev, d) => {
+      d.fx = ev.x; d.fy = ev.y;
+      if (d._gutter) { d.x = ev.x; d.y = ev.y; }
+    })
     .on("end", (ev, d) => {
       if (!ev.active) sim.alphaTarget(0);
       /* gutter nodes stay pinned where dropped; everything else floats free */

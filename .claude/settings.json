@@ -5,7 +5,13 @@
       "Bash(command -v magick convert compare)",
       "Bash(magick shot_t_hover.png -crop 700x400+900+600 +repage -resize 200% crop_hover.png)",
       "Bash(magick shot_t_hover.png -format \"%[pixel:p{206,252}] %[pixel:p{708,767}]\" info:)",
-      "Bash(git -C /home/danson/dev-stuff/Skill_Atlas diff --stat)"
+      "Bash(git -C /home/danson/dev-stuff/Skill_Atlas diff --stat)",
+      "Bash(python -c ' *)",
+      "Bash(magick v2_s_unreg.png -crop 480x300+180+420 +repage -resize 250% crop_hollow.png)",
+      "Bash(magick shot_scope.png -crop 480x300+30+480 +repage -resize 250% crop_hollow_before.png)",
+      "Bash(python -)",
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p2.html)",
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p3.html)"
     ]
   }
 }
