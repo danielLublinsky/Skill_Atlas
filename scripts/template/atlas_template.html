@@ -98,6 +98,7 @@
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
   }
   header input[type="checkbox"] { accent-color: var(--text-secondary); }
+  header label.toggle:has(input:disabled) { opacity: 0.35; cursor: default; }
   header select {
     padding: 3px 6px; border: 1px solid var(--baseline); border-radius: 2px;
     background: var(--plane); color: var(--text-primary); font: inherit;
@@ -254,8 +255,16 @@ function groupOf(n) { return n.plugin || n.scope || "other"; }
 function groupLabel(g) {
   return { user: "user skills", project: "project skills" }[g] || g;
 }
+/* every plugin gets its own stable color — hashed from the name, so it
+   never reshuffles when plugins are added or removed. Nodes keep the
+   scope-green identity; the plugin color rides as a tag (and as the
+   plugin-filter menu dot, so tag and menu always match). */
+function pluginColor(name) {
+  const hue = hashCode("plug:" + name) % 360;
+  return `hsl(${hue}, 62%, 46%)`;
+}
 function groupColor(g) {
-  return { user: SCOPE_COLOR.user, project: SCOPE_COLOR.project }[g] || SCOPE_COLOR.plugin;
+  return { user: SCOPE_COLOR.user, project: SCOPE_COLOR.project }[g] || pluginColor(g);
 }
 
 const allNodes = GRAPH.nodes.map(n => Object.assign({}, n));
@@ -341,6 +350,7 @@ document.getElementById("theme").addEventListener("click", () => {
     `<div class="row"><span class="swatch" style="background:${SCOPE_COLOR[s]}"></span>${s}</div>`).join("");
   el.innerHTML = `
     <h2>scope</h2>${scopeRows}
+    <div class="row"><span class="swatch" style="background:linear-gradient(90deg,#d9552f 0 4px,transparent 4px);border:1.5px solid var(--scope-plugin)"></span>plugin tag — one color each</div>
     <h2>shape</h2>
     <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--text-muted)"></span>skill</div>
     <div class="row"><span class="swatch circle" style="background:var(--text-muted)"></span>bundled file</div>
@@ -428,6 +438,28 @@ function visibleModel() {
   const showUnreg = ctl.unregistered.checked;
   const active = activeGroups();
 
+  /* category view (§7.1, amended): ONLY category hubs + member skills +
+     membership edges — no files, references, mentions, dangling targets or
+     orphans. The structural picture belongs to the scope view. Hubs live in
+     the picture, never in graph.json; multi-category skills hang between
+     their hubs. */
+  if (ctl.category.checked) {
+    const members = allNodes.filter(n =>
+      n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n)));
+    const hubs = new Map();
+    const memberEdges = [];
+    members.forEach(n => {
+      const cats = (n.categories && n.categories.length) ? n.categories : ["uncategorized"];
+      cats.forEach((c, i) => {
+        if (!hubs.has(c)) hubs.set(c, { id: "cat:" + c, type: "cat", name: c, count: 0 });
+        hubs.get(c).count += 1;
+        memberEdges.push({ source: n.id, target: "cat:" + c, kind: "member", home: i === 0 });
+      });
+    });
+    return { nodes: members.concat([...hubs.values()].sort((a, b) => (a.name < b.name ? -1 : 1))),
+             edges: memberEdges };
+  }
+
   /* primary skills pass the plugin filter; files and dangling targets are
      dependent nodes — they survive only through edges from visible skills */
   const primary = new Set(allNodes.filter(n =>
@@ -456,25 +488,6 @@ function visibleModel() {
   });
   const present = new Set(nodes.map(n => n.id));
   edges = edges.filter(e => present.has(e.source) && present.has(e.target));
-
-  /* category view (§7.1): synthesize one hub per category present among the
-     visible skills, plus membership edges. Hubs live in the picture, never
-     in graph.json; multi-category skills hang between their hubs. */
-  if (ctl.category.checked) {
-    const hubs = new Map();
-    const memberEdges = [];
-    nodes.forEach(n => {
-      if (n.type !== "skill" || n.unregDisplay || n.dangling) return;
-      const cats = (n.categories && n.categories.length) ? n.categories : ["uncategorized"];
-      cats.forEach((c, i) => {
-        if (!hubs.has(c)) hubs.set(c, { id: "cat:" + c, type: "cat", name: c, count: 0 });
-        hubs.get(c).count += 1;
-        memberEdges.push({ source: n.id, target: "cat:" + c, kind: "member", home: i === 0 });
-      });
-    });
-    nodes = nodes.concat([...hubs.values()].sort((a, b) => (a.name < b.name ? -1 : 1)));
-    edges = edges.concat(memberEdges);
-  }
   return { nodes, edges };
 }
 
@@ -529,13 +542,9 @@ function drawGraph() {
     n._w = size.w || (size.r ? size.r * 2 : 9); n._h = size.h || 9;
   });
 
-  /* orphans pinned to a labelled gutter — a primary finding, not driftwood
-     (§7.2). Skipped in category view: the uncategorized hub is their home */
-  const orphanIds = new Set(GRAPH.stats.orphan_ids || []);
+  /* orphans float free as ordinary nodes (amended — no gutter); with no
+     edges, the cluster forces settle them near their own group */
   let gyLeft = 70;
-  if (!catMode) nodes.forEach(n => {
-    if (orphanIds.has(n.id) && !n.unregDisplay) { n.fx = 90; n.fy = gyLeft; gyLeft += 34; n._gutter = true; }
-  });
   /* unregistered gutter stacks below the orphans, left side — the legend
      owns the top-right corner */
   let unregLabelY = null;
@@ -582,8 +591,6 @@ function drawGraph() {
       : (d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null))
     .attr("opacity", d => d.kind === "member" ? (d.home ? 0.5 : 0.3) : 0.75);
 
-  if (nodes.some(n => n.fx !== undefined && orphanIds.has(n.id)))
-    viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", 44).text("orphans");
   if (unregLabelY !== null)
     viewport.append("text").attr("class", "gutterlabel").attr("x", 56).attr("y", unregLabelY).text("unregistered");
 
@@ -645,6 +652,11 @@ function drawGraph() {
     if (d.category_stale)
       g.append("circle").attr("cx", w / 2 - 3).attr("cy", -h / 2 + 3)
         .attr("r", 3).attr("fill", "var(--warn)");
+    /* plugin identity tag: a color bar on the left edge, unique per plugin */
+    if (d.plugin)
+      g.append("rect")
+        .attr("x", -w / 2).attr("y", -h / 2).attr("width", 4).attr("height", h)
+        .attr("rx", 2).attr("fill", pluginColor(d.plugin));
     g.append("text").attr("class", "nodelabel")
       .attr("text-anchor", "middle").attr("dy", "0.34em")
       .style("fill", d.enabled ? "var(--text-primary)" : "var(--text-muted)")
@@ -765,13 +777,11 @@ if (useTable) {
 }
 [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c =>
   c.addEventListener("change", drawGraph));
-/* entering category view hides files once (§7.1); the toggle brings them back */
-let catFilesDefaulted = false;
+/* the structural toggles have no meaning in category view — grey them out */
 ctl.category.addEventListener("change", () => {
-  if (ctl.category.checked && !catFilesDefaulted) {
-    catFilesDefaulted = true;
-    ctl.files.checked = true;
-  }
+  [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered].forEach(c => {
+    c.disabled = ctl.category.checked;
+  });
   drawGraph();
 });
 window.addEventListener("resize", () => { if (!useTable) drawGraph(); });

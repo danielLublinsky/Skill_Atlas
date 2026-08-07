@@ -20,9 +20,14 @@ and these amendments override it where they conflict.
    approval — and later runs assign into it. When nothing fits, the model adds a category via
    the explicit `add-category` CLI act and calls it out in the report: additions are always
    visible, never silent. Editing/curation workflows come later (amendment 3).
-2. **Scope view stays the atlas default.** §7.1's "new default view" is amended: the
-   by-category view is an explicit toggle; Phase 1's scope clustering remains the opening
-   picture.
+2. **Scope view stays the atlas default, and the category view is pure catalog.** §7.1's "new
+   default view" is amended: the by-category view is an explicit toggle, and Phase 1's scope
+   clustering remains the opening picture. In category view the model contains ONLY category
+   hubs, member skills and membership edges — no files, `references`, `mentions`, dangling
+   targets or orphan gutter (the structural toggles grey out); §7.1's "existing toggle brings
+   files back" is dropped. The structural picture belongs to the scope view. Additionally the
+   orphan gutter is removed from the scope view too (amends DESIGN.md §7.2): orphans float as
+   ordinary nodes and settle near their own cluster.
 3. **Future editing direction: export/download from the HTML.** categories.json is hand-editable
    curated state, and the long-term plan is editing it in the atlas page (rename categories,
    drag skills) with a download of the resulting categories.json — a static file:// page cannot
