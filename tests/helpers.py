@@ -17,7 +17,6 @@ if str(SCRIPTS) not in sys.path:
 
 ENV_VARS = [
     "SKILL_ATLAS_CLAUDE_DIR",
-    "SKILL_ATLAS_HOME",
     "SKILL_ATLAS_AUTOBUILD",
 ]
 
@@ -44,7 +43,6 @@ class EnvSandbox:
         else:
             self.claude.mkdir()
         os.environ["SKILL_ATLAS_CLAUDE_DIR"] = str(self.claude)
-        os.environ["SKILL_ATLAS_HOME"] = str(self.tmp / "atlas-home")
         os.environ.pop("SKILL_ATLAS_AUTOBUILD", None)
         return self
 
@@ -139,6 +137,13 @@ def write_config(sandbox, obj) -> None:
     import atlas_io
     import atlas_paths
     atlas_io.atomic_write_json(atlas_paths.config_path(), obj)
+
+
+def write_project_categories(sandbox, obj) -> None:
+    import atlas_io
+    import atlas_paths
+    atlas_io.atomic_write_json(
+        atlas_paths.project_categories_path(sandbox.project_dir), obj)
 
 
 def searchable_config(*plugins) -> dict:

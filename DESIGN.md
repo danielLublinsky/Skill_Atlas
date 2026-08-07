@@ -560,7 +560,7 @@ Note during development: SKILL.md edits apply immediately, but changes to `hooks
 
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `SKILL_ATLAS_HOME` | `~/.claude/skill-atlas` | artifact root — derived files only |
+| ~~`SKILL_ATLAS_HOME`~~ | — | removed 2026-08-08 (DESIGN-PHASE2 §0.7): artifacts always live in the `.claude/skill-atlas` of their scope |
 | `SKILL_ATLAS_CLAUDE_DIR` | `~/.claude` | Claude Code config root (test seam) |
 | `SKILL_ATLAS_AUTOBUILD` | `1` | `0` disables the SessionStart staleness check |
 

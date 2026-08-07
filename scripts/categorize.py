@@ -1,9 +1,18 @@
 """categorize.py — the validating CLI the /skill-atlas model drives.
 
-The model never free-hands categories.json: every mutation flows through
+The model never free-hands curated state: every mutation flows through
 this CLI, which validates against the schema and the current graph before
 an atomic replace (DESIGN-PHASE2 §3.1, §4). Payload-taking subcommands read
 JSON on stdin (heredoc-friendly under the command's Bash(python3:*) grant).
+
+Curated state is split per scope: the GLOBAL file
+(~/.claude/skill-atlas/categories.json) holds the frozen taxonomy plus
+assignments for user and plugin skills; each project's
+.claude/skill-atlas/categories.json holds only that project's view-local
+assignments (project-scope skills and collision-renamed name@scope ids) —
+committable with the repo, never carrying a taxonomy of its own. Run from
+a project directory, this CLI operates on that project's view and routes
+each write to the right file automatically.
 
 Exit codes:
   0  success (warnings may appear on stderr)
@@ -34,6 +43,12 @@ class EnvError(Exception):
     """Environment (not payload) problem — mapped to exit 2."""
 
 
+class PayloadError(Exception):
+    def __init__(self, errors):
+        self.errors = list(errors)
+        super().__init__("payload rejected")
+
+
 def _fail(errors, code=3) -> int:
     for line in errors:
         print(f"categorize: {line}", file=sys.stderr)
@@ -49,11 +64,14 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
-def _load_graph(cwd=None) -> dict:
-    """The view this run categorizes: the project graph when cwd is a
-    project (so project skills and collision-renamed ids are covered too),
-    else the global graph — mirroring build_graph's view selection."""
-    cwd = cwd or os.getcwd()
+def _env_error_from(exc) -> EnvError:
+    lines = [f"{exc.source}: {line}" for line in exc.errors]
+    lines.append(f"{exc.source} is invalid on disk — fix it by hand, restore a backup, "
+                 "or install a corrected file with: categorize.py import <path>")
+    return EnvError("\n".join(lines))
+
+
+def _load_graph(cwd) -> dict:
     path = (atlas_paths.project_graph_path(cwd) if atlas_paths.is_project(cwd)
             else atlas_paths.graph_path())
     try:
@@ -62,6 +80,28 @@ def _load_graph(cwd=None) -> dict:
         raise EnvError(f"no graph at {path} — run build_graph.py first")
     except (OSError, ValueError) as exc:
         raise EnvError(f"unreadable graph.json ({type(exc).__name__}) — rebuild it")
+
+
+def _view(args) -> dict:
+    """Everything a command needs about the current view: the graph, both
+    curated files (project one only inside a project), and the merged
+    assignment map the view actually sees."""
+    cwd = args.cwd or os.getcwd()
+    graph = _load_graph(cwd)
+    try:
+        categories = atlas_categories.load_categories_strict()
+        config = atlas_categories.load_config_strict()
+        names = atlas_categories.taxonomy_names(categories)
+        project = (atlas_categories.load_project_categories_strict(cwd, names)
+                   if atlas_paths.is_project(cwd) else None)
+    except atlas_categories.CategoriesError as exc:
+        raise _env_error_from(exc)
+    merged = dict(categories["assignments"])
+    if project is not None:
+        merged.update(project["assignments"])
+    return {"cwd": cwd, "graph": graph, "categories": categories,
+            "config": config, "project": project, "merged": merged,
+            "names": names}
 
 
 def _registered(graph) -> list:
@@ -73,17 +113,16 @@ def _registered_map(graph) -> dict:
     return {n["id"]: n for n in _registered(graph)}
 
 
-def _descriptions(graph) -> dict:
-    return {n["id"]: n.get("description") for n in _registered(graph)}
+def _is_view_local(node) -> bool:
+    """View-local skills live in the PROJECT curated file: project-scope
+    skills, and collision-renamed ids that only exist in project views."""
+    return node.get("scope") == "project" or bool(node.get("duplicate"))
 
 
 def _make_entry(node, labels, today) -> dict:
-    entry = {"categories": list(labels),
-             "desc_hash": atlas_categories.desc_hash(node.get("description")),
-             "assigned_at": today}
-    if node.get("scope") == "project" or node.get("duplicate"):
-        entry["project"] = True   # view-local: resolvable only in a project view
-    return entry
+    return {"categories": list(labels),
+            "desc_hash": atlas_categories.desc_hash(node.get("description")),
+            "assigned_at": today}
 
 
 def _tier(node) -> str:
@@ -92,22 +131,6 @@ def _tier(node) -> str:
     if node.get("searchable"):
         return "searchable"
     return "off"
-
-
-def _load_curated():
-    """Both curated files, strictly. Invalid state on disk is an environment
-    failure for every subcommand — nothing operates on top of a broken file."""
-    try:
-        return atlas_categories.load_categories_strict(), atlas_categories.load_config_strict()
-    except atlas_categories.CategoriesError as exc:
-        raise _env_error_from(exc)
-
-
-def _env_error_from(exc) -> EnvError:
-    lines = [f"{exc.source}: {line}" for line in exc.errors]
-    lines.append(f"{exc.source} is invalid on disk — fix it by hand, restore a backup, "
-                 "or install a corrected file with: categorize.py import <path>")
-    return EnvError("\n".join(lines))
 
 
 def _read_stdin_payload() -> dict:
@@ -121,15 +144,7 @@ def _read_stdin_payload() -> dict:
     return payload
 
 
-class PayloadError(Exception):
-    def __init__(self, errors):
-        self.errors = list(errors)
-        super().__init__("payload rejected")
-
-
 def _payload_assignments(payload, taxonomy_labels, known_ids) -> dict:
-    """Validate a {id: [labels]} mapping against the graph and a taxonomy;
-    raises PayloadError listing every problem."""
     raw = payload.get("assignments")
     errors = []
     if not isinstance(raw, dict) or not raw:
@@ -151,16 +166,44 @@ def _payload_assignments(payload, taxonomy_labels, known_ids) -> dict:
     return raw
 
 
+def _write_split(view, updates) -> None:
+    """Route each {id: entry} update to its home file and write whichever
+    files were touched, global first (the taxonomy anchors validation)."""
+    registered_by_id = _registered_map(view["graph"])
+    touched_global = touched_project = False
+    for skill_id, entry in updates.items():
+        node = registered_by_id[skill_id]
+        if _is_view_local(node):
+            if view["project"] is None:
+                raise PayloadError([f"{skill_id!r} is view-local but the current "
+                                    "directory is not a project"])
+            view["project"]["assignments"][skill_id] = entry
+            touched_project = True
+        else:
+            view["categories"]["assignments"][skill_id] = entry
+            touched_global = True
+    if touched_global:
+        atlas_categories.write_categories(view["categories"])
+    if touched_project:
+        atlas_categories.write_project_categories(
+            view["cwd"], view["project"],
+            atlas_categories.taxonomy_names(view["categories"]))
+
+
+def _require_bootstrapped(categories) -> None:
+    if not atlas_categories.is_bootstrapped(categories):
+        raise PayloadError(["not bootstrapped yet — run the bootstrap flow first "
+                            "(/skill-atlas), or categorize.py bootstrap"])
+
+
 def cmd_status(args) -> int:
-    graph = _load_graph(args.cwd)
-    categories, config = _load_curated()
+    view = _view(args)
+    graph, merged = view["graph"], view["merged"]
     registered = _registered(graph)
-    assignments = categories["assignments"]
-    known = {n["id"] for n in registered}
 
     uncategorized, stale = [], []
     for node in sorted(registered, key=lambda n: n["id"]):
-        entry = assignments.get(node["id"])
+        entry = merged.get(node["id"])
         if entry is None:
             uncategorized.append({"id": node["id"], "description": node.get("description"),
                                   "plugin": node.get("plugin"), "tier": _tier(node)})
@@ -171,21 +214,21 @@ def cmd_status(args) -> int:
     out = {
         "view": graph.get("view", "global"),
         "project": graph.get("project"),
-        "bootstrapped": atlas_categories.is_bootstrapped(categories),
-        "taxonomy_approved_at": categories.get("taxonomy_approved_at"),
-        "taxonomy": categories["taxonomy"],
+        "bootstrapped": atlas_categories.is_bootstrapped(view["categories"]),
+        "taxonomy_approved_at": view["categories"].get("taxonomy_approved_at"),
+        "taxonomy": view["categories"]["taxonomy"],
         "counts": {
             "skills": len(registered),
-            "categorized": sum(1 for n in registered if n["id"] in assignments),
+            "categorized": sum(1 for n in registered if n["id"] in merged),
             "uncategorized": len(uncategorized),
             "stale": len(stale),
         },
         "uncategorized": uncategorized,
         "stale": stale,
         "orphan_assignments": atlas_categories.orphan_ids(
-            assignments, known,
+            merged, {n["id"] for n in registered},
             graph.get("stats", {}).get("duplicate_names", [])),
-        "config": config,
+        "config": view["config"],
     }
     if args.full:
         out["skills"] = [{"id": n["id"], "description": n.get("description")}
@@ -195,10 +238,9 @@ def cmd_status(args) -> int:
 
 
 def cmd_bootstrap(args) -> int:
-    graph = _load_graph(args.cwd)
-    categories, _ = _load_curated()
-    if atlas_categories.is_bootstrapped(categories):
-        return _fail([f"already bootstrapped ({categories['taxonomy_approved_at']}) — "
+    view = _view(args)
+    if atlas_categories.is_bootstrapped(view["categories"]):
+        return _fail([f"already bootstrapped ({view['categories']['taxonomy_approved_at']}) — "
                       "the taxonomy is frozen; assign into it, or delete "
                       f"{atlas_paths.categories_path()} deliberately to start over"])
 
@@ -213,73 +255,55 @@ def cmd_bootstrap(args) -> int:
     taxonomy_errors = atlas_categories.validate_categories(probe)
     if taxonomy_errors:
         return _fail(taxonomy_errors)
-    descriptions = _descriptions(graph)
+    registered_by_id = _registered_map(view["graph"])
     raw = _payload_assignments(payload, atlas_categories.taxonomy_names(probe),
-                               set(descriptions))
+                               set(registered_by_id))
     # Full coverage is a hard requirement: every registered skill must be
     # categorized. If nothing fits, the taxonomy is missing a category —
     # add one; never leave a skill out.
-    missing = sorted(set(descriptions) - set(raw))
+    missing = sorted(set(registered_by_id) - set(raw))
     if missing:
         return _fail(["assignments must cover every registered skill; missing: "
                       + ", ".join(missing),
                       "every skill must be categorized — add a category if nothing fits"])
 
     today = _today()
-    registered_by_id = _registered_map(graph)
-    obj = {
-        "version": 1,
-        "taxonomy_approved_at": today,
-        "taxonomy": taxonomy,
-        "assignments": {
-            skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
-            for skill_id, labels_for in raw.items()
-        },
-    }
+    view["categories"]["taxonomy"] = taxonomy
+    view["categories"]["taxonomy_approved_at"] = today
+    updates = {skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
+               for skill_id, labels_for in raw.items()}
     try:
-        atlas_categories.write_categories(obj, known_ids=set(descriptions))
+        # Global file is written even if only project entries exist — the
+        # taxonomy freeze lives there.
+        atlas_categories.write_categories(view["categories"])
+        _write_split(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
 
-    if not 8 <= len(obj["taxonomy"]) <= 12:
-        _warn([f"{len(obj['taxonomy'])} categories — the design target is 8–12"])
-    _print_category_counts(obj)
-    print(f"bootstrapped: {len(obj['taxonomy'])} categories, "
-          f"{len(raw)}/{len(descriptions)} skills assigned")
+    if not 8 <= len(taxonomy) <= 12:
+        _warn([f"{len(taxonomy)} categories — the design target is 8–12"])
+    counts = {entry["name"]: 0 for entry in taxonomy}
+    for labels_for in raw.values():
+        for label in labels_for:
+            counts[label] += 1
+    for name in sorted(counts):
+        print(f"  {name}: {counts[name]}")
+    print(f"bootstrapped: {len(taxonomy)} categories, "
+          f"{len(raw)}/{len(registered_by_id)} skills assigned")
     return 0
 
 
-def _print_category_counts(categories_obj) -> None:
-    counts = {entry["name"]: 0 for entry in categories_obj["taxonomy"]}
-    for entry in categories_obj["assignments"].values():
-        for label in entry["categories"]:
-            counts[label] = counts.get(label, 0) + 1
-    for name in sorted(counts):
-        print(f"  {name}: {counts[name]}")
-
-
-def _require_bootstrapped(categories) -> None:
-    if not atlas_categories.is_bootstrapped(categories):
-        raise PayloadError(["not bootstrapped yet — run the bootstrap flow first "
-                            "(/skill-atlas), or categorize.py bootstrap"])
-
-
 def cmd_assign(args) -> int:
-    graph = _load_graph(args.cwd)
-    categories, _ = _load_curated()
-    _require_bootstrapped(categories)
+    view = _view(args)
+    _require_bootstrapped(view["categories"])
     payload = _read_stdin_payload()
-    registered_by_id = _registered_map(graph)
-    raw = _payload_assignments(payload, atlas_categories.taxonomy_names(categories),
-                               set(registered_by_id))
+    registered_by_id = _registered_map(view["graph"])
+    raw = _payload_assignments(payload, view["names"], set(registered_by_id))
     today = _today()
-    for skill_id, labels_for in raw.items():
-        categories["assignments"][skill_id] = _make_entry(
-            registered_by_id[skill_id], labels_for, today)
-    # known_ids deliberately omitted: pre-existing orphan assignments
-    # (environmental drift) must never block an unrelated write.
+    updates = {skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
+               for skill_id, labels_for in raw.items()}
     try:
-        atlas_categories.write_categories(categories)
+        _write_split(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"assigned {len(raw)} skill(s)")
@@ -287,25 +311,27 @@ def cmd_assign(args) -> int:
 
 
 def cmd_confirm(args) -> int:
-    graph = _load_graph(args.cwd)
-    categories, _ = _load_curated()
-    _require_bootstrapped(categories)
-    descriptions = _descriptions(graph)
+    view = _view(args)
+    _require_bootstrapped(view["categories"])
+    registered_by_id = _registered_map(view["graph"])
     errors = []
     for skill_id in args.ids:
-        if skill_id not in categories["assignments"]:
+        if skill_id not in view["merged"]:
             errors.append(f"{skill_id!r}: no assignment to confirm")
-        elif skill_id not in descriptions:
+        elif skill_id not in registered_by_id:
             errors.append(f"{skill_id!r}: no longer in the graph — cannot confirm")
     if errors:
         return _fail(errors)
     today = _today()
+    updates = {}
     for skill_id in args.ids:
-        entry = categories["assignments"][skill_id]
-        entry["desc_hash"] = atlas_categories.desc_hash(descriptions[skill_id])
+        entry = dict(view["merged"][skill_id])
+        entry["desc_hash"] = atlas_categories.desc_hash(
+            registered_by_id[skill_id].get("description"))
         entry["assigned_at"] = today
+        updates[skill_id] = entry
     try:
-        atlas_categories.write_categories(categories)
+        _write_split(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"confirmed {len(args.ids)} assignment(s)")
@@ -313,20 +339,21 @@ def cmd_confirm(args) -> int:
 
 
 def cmd_add_category(args) -> int:
-    categories, _ = _load_curated()
-    _require_bootstrapped(categories)
-    categories["taxonomy"].append({"name": args.name, "description": args.description})
+    view = _view(args)
+    _require_bootstrapped(view["categories"])
+    view["categories"]["taxonomy"].append(
+        {"name": args.name, "description": args.description})
     try:
-        atlas_categories.write_categories(categories)
+        atlas_categories.write_categories(view["categories"])
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"added category {args.name!r}; taxonomy now has "
-          f"{len(categories['taxonomy'])} categories")
+          f"{len(view['categories']['taxonomy'])} categories")
     return 0
 
 
 def cmd_import(args) -> int:
-    graph = _load_graph(args.cwd)
+    view = _view(args)
     try:
         text = Path(args.path).read_text(encoding="utf-8")
     except OSError as exc:
@@ -335,38 +362,55 @@ def cmd_import(args) -> int:
         obj = json.loads(text)
     except ValueError as exc:
         return _fail([f"{args.path}: unparseable JSON: {exc}"])
-    errors = atlas_categories.validate_categories(obj)
+
+    project_mode = view["project"] is not None
+    if project_mode:
+        errors = atlas_categories.validate_project_categories(obj, view["names"])
+    else:
+        errors = atlas_categories.validate_categories(obj)
     if errors:
         return _fail([f"{args.path}: {line}" for line in errors])
-    known = set(_descriptions(graph))
+
+    known = set(_registered_map(view["graph"]))
     orphans = sorted(set(obj.get("assignments", {})) - known)
     if orphans:
         # A user-edited full state may legitimately carry assignments for
         # skills that left the graph — surfaced, never rejected.
         _warn([f"{len(orphans)} assignment(s) for skills not in the graph: "
                + ", ".join(orphans)])
-    uncovered = sorted(known - set(obj.get("assignments", {})))
+    if project_mode:
+        merged_after = dict(view["categories"]["assignments"])
+        merged_after.update(obj.get("assignments", {}))
+    else:
+        merged_after = dict(obj.get("assignments", {}))
+    uncovered = sorted(known - set(merged_after))
     if uncovered:
         _warn([f"{len(uncovered)} registered skill(s) not covered: "
                + ", ".join(uncovered)
                + " — every skill must be categorized; run /skill-atlas"])
-    atlas_categories.write_categories(obj)
-    print(f"imported: {len(obj['taxonomy'])} categories, "
-          f"{len(obj['assignments'])} assignments")
+
+    if project_mode:
+        atlas_categories.write_project_categories(view["cwd"], obj, view["names"])
+        print(f"imported into project categories.json: "
+              f"{len(obj['assignments'])} assignments")
+    else:
+        atlas_categories.write_categories(obj)
+        print(f"imported: {len(obj['taxonomy'])} categories, "
+              f"{len(obj['assignments'])} assignments")
     return 0
 
 
 def cmd_config(args) -> int:
-    _, config = _load_curated()
+    view = _view(args)
+    config = view["config"]
     if not (args.show or args.add or args.remove):
         return _fail(["one of --show / --add-searchable / --remove-searchable is required"])
     if args.show:
         print(json.dumps(config, indent=2, sort_keys=True))
         return 0
     if args.add:
-        graph = _load_graph(args.cwd)
         known = set()
-        for node in graph.get("nodes", []):
+        for node in view["graph"].get("nodes", []):
             if node.get("type") == "skill":
                 known.add(node.get("plugin"))
                 known.add(node.get("plugin_key"))
@@ -420,11 +464,12 @@ def main(argv=None) -> int:
     p.set_defaults(func=cmd_add_category)
 
     p = sub.add_parser("import",
-                       help="validate and install a hand-edited/downloaded categories.json")
+                       help="validate and install a hand-edited/downloaded categories.json "
+                            "(global schema outside a project, project schema inside one)")
     p.add_argument("path")
     p.set_defaults(func=cmd_import)
 
-    p = sub.add_parser("config", help="searchable-plugins opt-in")
+    p = sub.add_parser("config", help="searchable-plugins opt-in (always global)")
     p.add_argument("--show", action="store_true")
     p.add_argument("--add-searchable", dest="add", metavar="PLUGIN")
     p.add_argument("--remove-searchable", dest="remove", metavar="PLUGIN")

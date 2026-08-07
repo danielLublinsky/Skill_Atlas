@@ -2,8 +2,10 @@
 """Read-only structural assertions against the real machine (DESIGN §9).
 
 Never hard-codes counts — the doc's numbers drifted within days of being
-written. Every comparison recomputes both sides at runtime. Artifacts go to
-a temp SKILL_ATLAS_HOME; ~/.claude is only ever read.
+written. Every comparison recomputes both sides at runtime. Isolation:
+a temp claude dir whose inputs (skills, plugins, settings) are symlinks to
+the real ~/.claude, with a fresh skill-atlas/ for artifacts — the real
+machine is only ever read.
 
 Covers: M1 (manifest-driven counts), M2 (dangling detection incl. the known
 setup-matt-pocock-skills → qa defect when that plugin is installed),
@@ -66,9 +68,17 @@ def independent_registered_count(claude_dir: Path, cwd: Path) -> int:
 
 
 def main() -> int:
-    home = Path(tempfile.mkdtemp(prefix="skill-atlas-smoke-"))
-    os.environ["SKILL_ATLAS_HOME"] = str(home)
-    os.environ.pop("SKILL_ATLAS_CLAUDE_DIR", None)
+    real = Path(os.environ.get("SKILL_ATLAS_CLAUDE_DIR",
+                               "~/.claude")).expanduser()
+    tmp = Path(tempfile.mkdtemp(prefix="skill-atlas-smoke-"))
+    fake = tmp / "claude"
+    fake.mkdir()
+    for name in ("skills", "plugins", "settings.json", "settings.local.json"):
+        src = real / name
+        if src.exists():
+            (fake / name).symlink_to(src)
+    (fake / "skill-atlas").mkdir()
+    os.environ["SKILL_ATLAS_CLAUDE_DIR"] = str(fake)
 
     import atlas_paths
     import build_graph
@@ -76,7 +86,7 @@ def main() -> int:
 
     claude_dir = atlas_paths.claude_dir()
     cwd = Path.cwd()
-    print(f"smoke: claude_dir={claude_dir} artifacts={home}\n")
+    print(f"smoke: inputs={real} artifacts={fake / 'skill-atlas'}\n")
 
     print("M1 — manifest-driven discovery")
     graph, exit_code = build_graph.build(cwd=cwd)
@@ -84,9 +94,12 @@ def main() -> int:
     expected = independent_registered_count(claude_dir, cwd)
     check("registered count matches independent recount",
           stats["skills"] == expected, f"{stats['skills']} vs {expected}")
+    # stats.skillmd_on_disk is computed against the symlinked temp claude
+    # dir, where rglob does not descend — recount against the real one.
+    naive_on_disk = sum(1 for _ in real.rglob("SKILL.md"))
     check("registered well below naive on-disk count",
-          stats["skills"] < stats["skillmd_on_disk"],
-          f"{stats['skills']} registered / {stats['skillmd_on_disk']} on disk")
+          stats["skills"] < naive_on_disk,
+          f"{stats['skills']} registered / {naive_on_disk} on disk")
     check("no node from the marketplace catalogue",
           not any("/marketplaces/" in (n.get("path") or "") for n in graph["nodes"]))
     enabled_map = atlas_paths.merged_enabled_plugins(cwd)
@@ -128,8 +141,8 @@ def main() -> int:
 
     print("\n§11.3 — most SKILL.md files are not skills")
     check("on-disk count at least 2x registered",
-          stats["skillmd_on_disk"] >= 2 * stats["skills"],
-          f"{stats['skillmd_on_disk']} vs {stats['skills']}")
+          naive_on_disk >= 2 * stats["skills"],
+          f"{naive_on_disk} vs {stats['skills']}")
 
     print("\nM5 — self-contained HTML")
     import atlas_io

@@ -21,7 +21,7 @@ def _cli(*args, stdin_text=None, cwd=None):
     # Explicit --cwd always: categorize.py follows the view from cwd, and
     # the test runner's own cwd (this repo) is itself a project. The
     # sandbox tmp dir is the neutral non-project → global view.
-    neutral = str(Path(os.environ["SKILL_ATLAS_HOME"]).parent)
+    neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
     return subprocess.run(
         [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
          "--cwd", cwd or neutral, *args],
@@ -92,12 +92,6 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(any("unknown key 'extra'" in e for e in errors_of(obj)))
 
         obj = base()
-        obj["assignments"]["a"] = {"categories": ["eng"], "desc_hash": good_hash,
-                                   "assigned_at": "2026-08-07", "project": "yes"}
-        self.assertTrue(any("project, when present, must be true" in e
-                            for e in errors_of(obj)))
-
-        obj = base()
         obj["assignments"]["ghost"] = {"categories": ["eng"], "desc_hash": good_hash,
                                        "assigned_at": "2026-08-07"}
         self.assertTrue(any("not a registered skill" in e
@@ -126,6 +120,27 @@ class TestValidation(unittest.TestCase):
             atlas_paths.categories_path().write_text("{broken-secret-content")
             with self.assertRaises(atlas_categories.CategoriesError):
                 atlas_categories.load_categories_strict()
+
+    def test_project_schema(self):
+        good_hash = atlas_categories.desc_hash("d")
+        names = {"eng", "docs"}
+        ok = {"version": 1, "assignments": {"proj-skill": {
+            "categories": ["eng"], "desc_hash": good_hash,
+            "assigned_at": "2026-08-08"}}}
+        self.assertEqual(
+            atlas_categories.validate_project_categories(ok, names), [])
+        # A project file must never carry its own taxonomy.
+        forked = dict(ok, taxonomy=[{"name": "rogue", "description": "x"}])
+        errors = atlas_categories.validate_project_categories(forked, names)
+        self.assertTrue(any("taxonomy lives only in the global" in e
+                            for e in errors))
+        # Labels validate against the GLOBAL taxonomy.
+        bad = {"version": 1, "assignments": {"proj-skill": {
+            "categories": ["nope"], "desc_hash": good_hash,
+            "assigned_at": "2026-08-08"}}}
+        errors = atlas_categories.validate_project_categories(bad, names)
+        self.assertTrue(any("'nope' is not in the taxonomy" in e
+                            for e in errors))
 
     def test_config_validation(self):
         errors = atlas_categories.validate_config(

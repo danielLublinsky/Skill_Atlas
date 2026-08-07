@@ -27,7 +27,9 @@ Full flow: build → `categorize.py status` → categorize (below) → rebuild �
 render → report. Both build and render produce the global view
 (`~/.claude/skill-atlas/atlas.html`) and, when the current directory carries
 its own `.claude/`, a **project view** at `.claude/skill-atlas/atlas.html`
-(suggest gitignoring `.claude/skill-atlas/` on first appearance).
+(suggest gitignoring the derived files there — but NOT
+`categories.json`, the project's curated categorization, which belongs in
+version control).
 
 ## Categorization
 
@@ -79,7 +81,11 @@ violation; fix and retry.
 - **`categories.json` is curated state — the one exception to
   rebuild-never-repair.** Never delete or regenerate it; regeneration
   discards the frozen taxonomy and every assignment. Suggest backing it up.
-  `config.json` is user config (the searchable-plugins opt-in).
+  It is split per scope: the global file (`~/.claude/skill-atlas/`) holds
+  the taxonomy plus user/plugin assignments; each project's
+  `.claude/skill-atlas/categories.json` holds only that project's
+  view-local assignments (no taxonomy) and travels with the repo.
+  `config.json` is user config (the searchable-plugins opt-in, global).
 - The taxonomy freezes at bootstrap. Renaming or merging categories is a
   hand-edit of categories.json (taxonomy AND assignments) validated via
   `categorize.py import`, followed by a rebuild.

@@ -12,9 +12,8 @@ class TestEnvAndDefaults(unittest.TestCase):
     def test_env_overrides_and_defaults(self):
         with helpers.EnvSandbox() as sandbox:
             self.assertEqual(atlas_paths.claude_dir(), sandbox.claude)
-            self.assertEqual(atlas_paths.atlas_home(), sandbox.tmp / "atlas-home")
-            # Defaults derive from claude_dir when the env vars are unset.
-            os.environ.pop("SKILL_ATLAS_HOME")
+            # No artifact-root override: artifacts always live in the
+            # .claude/skill-atlas of their scope.
             self.assertEqual(atlas_paths.atlas_home(), sandbox.claude / "skill-atlas")
             self.assertTrue(atlas_paths.autobuild_enabled())
             os.environ["SKILL_ATLAS_AUTOBUILD"] = "0"
@@ -85,9 +84,12 @@ class TestInstalledPlugins(unittest.TestCase):
             self.assertIn(sandbox.claude / "settings.local.json", paths)
             self.assertIn(Path("/some/project/.claude/settings.json"), paths)
             self.assertIn(Path("/x/alpha/1.0.0/.claude-plugin/plugin.json"), paths)
-            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3).
+            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3),
+            # including the project's own curated file for project views.
             self.assertIn(atlas_paths.categories_path(), paths)
             self.assertIn(atlas_paths.config_path(), paths)
+            self.assertIn(
+                Path("/some/project/.claude/skill-atlas/categories.json"), paths)
 
 
 class TestProjectPaths(unittest.TestCase):
@@ -121,6 +123,9 @@ class TestPhase2Paths(unittest.TestCase):
             self.assertEqual(atlas_paths.catalog_dir(), home / "catalog")
             self.assertEqual(atlas_paths.catalog_index_path(),
                              home / "catalog" / "_index.md")
+            self.assertEqual(
+                atlas_paths.project_categories_path("/x/proj"),
+                Path("/x/proj/.claude/skill-atlas/categories.json"))
 
 
 class TestAtomicIO(unittest.TestCase):

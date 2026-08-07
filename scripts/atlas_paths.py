@@ -20,11 +20,13 @@ def claude_dir() -> Path:
 
 
 def atlas_home() -> Path:
-    """Artifact root. Mostly derived files (graph.json, atlas.html, catalog/),
-    plus two Phase 2 exceptions with different loss semantics: categories.json
-    is CURATED (restore from backup, never regenerate) and config.json is user
-    config (DESIGN-PHASE2 §3.4)."""
-    return _env_path("SKILL_ATLAS_HOME", claude_dir() / "skill-atlas")
+    """Machine-level artifact root — always `.claude/skill-atlas` of the
+    user scope (no override: artifacts live with their scope, project
+    artifacts under the project's own `.claude/skill-atlas`). Mostly derived
+    files (graph.json, atlas.html, catalog/), plus two exceptions with
+    different loss semantics: categories.json is CURATED (restore from
+    backup, never regenerate) and config.json is user config."""
+    return claude_dir() / "skill-atlas"
 
 
 def autobuild_enabled() -> bool:
@@ -91,6 +93,13 @@ def project_home(cwd) -> Path:
 
 def project_graph_path(cwd) -> Path:
     return project_home(cwd) / "graph.json"
+
+
+def project_categories_path(cwd) -> Path:
+    """Curated per-project category assignments — travels with the project
+    (committable), holding only that project's skills and collision-renamed
+    ids; the taxonomy stays global."""
+    return project_home(cwd) / "categories.json"
 
 
 def project_atlas_path(cwd) -> Path:
@@ -170,6 +179,8 @@ def manifest_paths(cwd=None) -> list:
     first appearance flips the fingerprint too."""
     paths = [installed_plugins_path(), categories_path(), config_path()] \
         + settings_paths(cwd)
+    if cwd:
+        paths.append(project_categories_path(cwd))
     try:
         for record in installed_plugins():
             paths.append(record["install_path"] / ".claude-plugin" / "plugin.json")

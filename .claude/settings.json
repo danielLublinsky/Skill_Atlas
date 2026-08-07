@@ -22,7 +22,16 @@
       "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --screenshot=v7.png file://__TRACKED_VAR__/atlas_preview.html)",
       "Bash(magick v7.png -crop 900x120+350+0 +repage -resize 150% crop_tabs.png)",
       "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p7.html)",
-      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p8.html)"
+      "Bash(timeout 90 chromium --headless --no-sandbox --disable-gpu --virtual-time-budget=6000 --window-size=1600,1000 --dump-dom file://__TRACKED_VAR__/p8.html)",
+      "Bash(echo \"build exit $?\")",
+      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('view:', s['view'], '| counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")",
+      "Bash(echo \"global exit $?\")",
+      "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/build_graph.py --project-only --quiet)",
+      "Bash(echo \"project exit $?\")",
+      "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/categorize.py status)",
+      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('view:', s['view'], s['project'], '| counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")",
+      "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/categorize.py --cwd /tmp status)",
+      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('global counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")"
     ]
   }
 }

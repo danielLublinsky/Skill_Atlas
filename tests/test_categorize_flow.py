@@ -18,7 +18,7 @@ import build_graph
 
 
 def _cli(*args, stdin_text=None, cwd=None):
-    neutral = str(Path(os.environ["SKILL_ATLAS_HOME"]).parent)
+    neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
     return subprocess.run(
         [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
          "--cwd", cwd or neutral, *args],
@@ -101,14 +101,20 @@ class TestCategorizationFlow(unittest.TestCase):
                              ["graphify@project", "graphify@user"])
             self.assertEqual(status["orphan_assignments"], [])
 
+            snapshot_global = _categories()
             proc = _cli("assign", cwd=str(sandbox.project_dir),
                         stdin_text=json.dumps({"assignments": {
                             "graphify@project": ["docs"],
                             "graphify@user": ["docs"]}}))
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            obj = _categories()
-            self.assertIs(obj["assignments"]["graphify@project"]["project"], True)
-            self.assertIs(obj["assignments"]["graphify@user"]["project"], True)
+            # View-local entries land in the PROJECT's own curated file;
+            # the global file is untouched.
+            project_file = json.loads(atlas_paths.project_categories_path(
+                sandbox.project_dir).read_text())
+            self.assertEqual(sorted(project_file["assignments"]),
+                             ["graphify@project", "graphify@user"])
+            self.assertNotIn("taxonomy", project_file)
+            self.assertEqual(_categories(), snapshot_global)
 
             build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             project_graph = json.loads(

@@ -67,5 +67,7 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    (id → categories), stale confirmed vs moved, any category you added; and the
    atlas path(s). Both scripts build the global view and — when the current
    directory has its own `.claude/` — a project view at
-   `.claude/skill-atlas/atlas.html`; suggest gitignoring `.claude/skill-atlas/`
-   the first time a project atlas appears.
+   `.claude/skill-atlas/atlas.html`. The first time project artifacts appear,
+   suggest gitignoring the DERIVED files only (`graph.json`, `atlas.html`,
+   `graph.dirty`, `debug.log`) — `.claude/skill-atlas/categories.json` is the
+   project's curated categorization and belongs in version control.

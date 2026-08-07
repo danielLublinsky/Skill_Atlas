@@ -53,14 +53,23 @@ and these amendments override it where they conflict.
    uncategorized bucket, shard and index-line nag remain, but strictly as the *transitional*
    state for skills installed between runs (the model-free build cannot label them) and for
    degraded configurations — never as an acceptable end state of a run.
-7. **Project skills are categorized too (2026-08-07, user decision).** `categorize.py` is
-   view-aware: run from a project directory it operates on that project's graph, so
-   project-scope skills and collision-renamed ids (`name@user` / `name@project`) get
-   assignments in the same global categories.json. Such assignments carry an optional
-   `"project": true` marker meaning *view-local*: the global build skips them (and bare names
-   shadowed by a collision rename) when computing `orphan_assignments`, so cross-view noise
-   never reads as environmental drift. Coverage stays per-view: each view's uncategorized
+7. **Project skills are categorized too, and curated state is split per scope
+   (2026-08-07/08, user decisions).** `categorize.py` is view-aware: run from a project
+   directory it operates on that project's graph, so project-scope skills and
+   collision-renamed ids (`name@user` / `name@project`) are covered like any other skill.
+   Curated state lives in two files: the GLOBAL `~/.claude/skill-atlas/categories.json`
+   (frozen taxonomy + user/plugin assignments) and a per-project
+   `.claude/skill-atlas/categories.json` (`{"version", "assignments"}` only — a project file
+   carrying a taxonomy is rejected; labels validate against the global taxonomy). The project
+   file travels with the repo and is meant to be committed (gitignore the derived siblings,
+   not it). Project views merge the two, project entries winning on id collisions; each file
+   joins its view's fingerprint. Orphan reporting stays per-view (bare names shadowed by a
+   collision rename are excluded), and coverage stays per-view: each view's uncategorized
    count nudges a `/skill-atlas` run from the place that can see those skills.
+   Additionally the `SKILL_ATLAS_HOME` env var is REMOVED: artifacts always live in the
+   `.claude/skill-atlas` of their scope; §3.4's "under SKILL_ATLAS_HOME" and §5's shard
+   location now read `~/.claude/skill-atlas/`. Tests and dev/smoke_live.py isolate via
+   `SKILL_ATLAS_CLAUDE_DIR` (smoke symlinks real inputs into a temp claude dir).
 8. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
    `_index.md` ≈ 650 tokens (above the §5 estimate — the derived token lists are what grew it),
    shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one

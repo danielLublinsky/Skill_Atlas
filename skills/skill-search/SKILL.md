@@ -22,9 +22,9 @@ most two shards — never read the whole catalog.
 
 ## Locate the catalog
 
-`$SKILL_ATLAS_HOME/catalog/`, defaulting to `~/.claude/skill-atlas/catalog/`
-when the env var is unset. If `catalog/_index.md` does not exist, say search
-is unavailable, suggest running `/skill-atlas`, and proceed without a skill.
+`~/.claude/skill-atlas/catalog/`. If `catalog/_index.md` does not exist, say
+search is unavailable, suggest running `/skill-atlas`, and proceed without a
+skill.
 
 ## Stage 1 — pick a category
 

@@ -25,12 +25,9 @@ PATTERNS = (
 
 
 def _dirty_marker_path() -> str:
-    home = os.environ.get("SKILL_ATLAS_HOME")
-    if not home:
-        claude = os.environ.get("SKILL_ATLAS_CLAUDE_DIR",
-                                os.path.expanduser("~/.claude"))
-        home = os.path.join(claude, "skill-atlas")
-    return os.path.join(os.path.expanduser(home), "graph.dirty")
+    claude = os.environ.get("SKILL_ATLAS_CLAUDE_DIR",
+                            os.path.expanduser("~/.claude"))
+    return os.path.join(os.path.expanduser(claude), "skill-atlas", "graph.dirty")
 
 
 def main() -> int:

@@ -60,9 +60,10 @@ scripts additionally produce a **project view** written into the project at
 skills + installed plugins, with the *project's own* `enabledPlugins`
 overrides applied — so a plugin disabled globally but enabled for the
 project shows correctly in each view. The global artifacts stay
-machine-level (they no longer include any project's skills). Add
-`.claude/skill-atlas/` to the project's `.gitignore` — the files are
-derived caches.
+machine-level (they no longer include any project's skills). Gitignore the
+derived files in `.claude/skill-atlas/` (`graph.json`, `atlas.html`,
+`graph.dirty`, `debug.log`) but **commit `categories.json`** — it is the
+project's curated categorization and shareable with the team.
 
 `build_graph.py` exit codes make it usable as a CI gate:
 
@@ -120,21 +121,31 @@ that would have is dropped (DESIGN.md §6). Two notes that still apply:
 
 ## Configuration
 
+Artifacts always live in the `.claude/skill-atlas/` of their scope — no
+override: `~/.claude/skill-atlas/` for the machine view (graph, atlas,
+`catalog/`, the global curated `categories.json`, `config.json`), and
+`<project>/.claude/skill-atlas/` for project views (graph, atlas, and that
+project's own curated `categories.json`).
+
 | Env var | Default | Meaning |
 | --- | --- | --- |
-| `SKILL_ATLAS_HOME` | `~/.claude/skill-atlas` | artifact root — derived files, plus curated `categories.json` and user `config.json` |
 | `SKILL_ATLAS_CLAUDE_DIR` | `~/.claude` | Claude Code config root (test seam) |
 | `SKILL_ATLAS_AUTOBUILD` | `1` | `0` disables the SessionStart staleness check |
 
 All derived files (`graph.json`, `atlas.html`, `catalog/`) are caches:
 deletable at any time, rebuilt from scratch on the next run. If one is
-corrupted the fix is rebuild, never repair. Two files are *not* caches:
-**`categories.json` is curated state** — deleting it discards the frozen
-taxonomy and every assignment (back it up; a hand-edit that breaks its
-schema fails the build loud with the violations named, and
+corrupted the fix is rebuild, never repair. The exceptions are *not*
+caches: **`categories.json` is curated state** — deleting it discards the
+frozen taxonomy and every assignment (back it up; a hand-edit that breaks
+its schema fails the build loud with the violations named, and
 `categorize.py import <path>` installs a corrected file after
 validation) — and `config.json` is a five-line opt-in list you can
-rewrite. See DESIGN-PHASE2.md §3.4.
+rewrite. Curated state is split per scope: the global file carries the
+taxonomy + user/plugin assignments; each project's
+`.claude/skill-atlas/categories.json` carries only that project's
+assignments (never a taxonomy) and is meant to be **committed with the
+repo** — gitignore the derived files next to it, not the curated one.
+See DESIGN-PHASE2.md §3.4 and §0 amendment 7.
 
 ## Development
 

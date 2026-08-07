@@ -26,12 +26,11 @@ HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 RESERVED_NAMES = ("uncategorized",)
 
 _CATEGORIES_KEYS = {"version", "taxonomy", "taxonomy_approved_at", "assignments"}
-# "project" (optional, literal true) marks a view-local assignment: a
-# project-scope skill or a collision-renamed id (name@user / name@project)
-# that only resolves inside a project view — the global view must not
-# report it as an orphan.
-_ASSIGNMENT_REQUIRED = {"categories", "desc_hash", "assigned_at"}
-_ASSIGNMENT_KEYS = _ASSIGNMENT_REQUIRED | {"project"}
+_ASSIGNMENT_KEYS = {"categories", "desc_hash", "assigned_at"}
+# Per-project curated file: assignments only — the taxonomy lives solely in
+# the global file, so project state can travel with the repo without ever
+# forking the frozen taxonomy.
+_PROJECT_KEYS = {"version", "assignments"}
 _CONFIG_KEYS = {"version", "searchable_plugins"}
 
 
@@ -55,6 +54,10 @@ def desc_hash(description) -> str:
 
 def empty_categories() -> dict:
     return {"version": 1, "taxonomy": [], "assignments": {}}
+
+
+def empty_project_categories() -> dict:
+    return {"version": 1, "assignments": {}}
 
 
 def empty_config() -> dict:
@@ -110,10 +113,14 @@ def validate_categories(obj, known_ids=None) -> list:
         if not isinstance(desc, str) or not desc.strip() or "\n" in desc:
             errors.append(f"{where}: description must be a non-empty single line")
 
-    assignments = obj.get("assignments")
+    _validate_assignments(obj.get("assignments"), names, known_ids, errors)
+    return errors
+
+
+def _validate_assignments(assignments, valid_names, known_ids, errors) -> None:
     if not isinstance(assignments, dict):
         errors.append("assignments: expected an object")
-        assignments = {}
+        return
     for skill_id in sorted(assignments):
         entry = assignments[skill_id]
         where = f"assignments[{skill_id!r}]"
@@ -124,7 +131,7 @@ def validate_categories(obj, known_ids=None) -> list:
         if not isinstance(entry, dict):
             errors.append(f"{where}: expected an object")
             continue
-        for key in sorted(_ASSIGNMENT_REQUIRED - set(entry)):
+        for key in sorted(_ASSIGNMENT_KEYS - set(entry)):
             errors.append(f"{where}: missing key {key!r}")
         for key in sorted(set(entry) - _ASSIGNMENT_KEYS):
             errors.append(f"{where}: unknown key {key!r}")
@@ -137,7 +144,7 @@ def validate_categories(obj, known_ids=None) -> list:
                 if not isinstance(label, str):
                     errors.append(f"{where}: labels must be strings")
                     continue
-                if label not in names:
+                if label not in valid_names:
                     errors.append(f"{where}: {label!r} is not in the taxonomy")
                 if label in seen:
                     errors.append(f"{where}: duplicate label {label!r}")
@@ -150,21 +157,33 @@ def validate_categories(obj, known_ids=None) -> list:
         if "assigned_at" in entry and (not isinstance(assigned_at, str)
                                        or not assigned_at.strip()):
             errors.append(f"{where}: assigned_at must be a non-empty string")
-        if "project" in entry and entry.get("project") is not True:
-            errors.append(f"{where}: project, when present, must be true")
+
+
+def validate_project_categories(obj, taxonomy_names, known_ids=None) -> list:
+    """Per-project curated file: `{"version": 1, "assignments": {...}}`.
+    Labels are validated against the GLOBAL taxonomy — a project file that
+    tries to carry its own taxonomy is rejected with a pointer."""
+    if not isinstance(obj, dict):
+        return ["top level: expected an object"]
+    errors = []
+    for key in sorted(set(obj) - _PROJECT_KEYS):
+        hint = (" — the taxonomy lives only in the global categories.json"
+                if key in ("taxonomy", "taxonomy_approved_at") else "")
+        errors.append(f"unknown key {key!r}{hint}")
+    if obj.get("version") != 1:
+        errors.append(f"version: expected 1, got {obj.get('version')!r}")
+    _validate_assignments(obj.get("assignments"), set(taxonomy_names),
+                          known_ids, errors)
     return errors
 
 
 def orphan_ids(assignments, view_ids, duplicate_names=()) -> list:
-    """Assignments this view cannot resolve AND should worry about:
-    view-local (project-marked) entries belong to some project view, and a
-    bare name shadowed by a collision rename in this view is not gone —
-    neither is environmental drift."""
+    """Assignments this view cannot resolve AND should worry about — a bare
+    name shadowed by a collision rename in this view is not gone, so it is
+    not environmental drift."""
     dupes = set(duplicate_names)
-    return sorted(skill_id for skill_id, entry in assignments.items()
-                  if skill_id not in view_ids
-                  and not (isinstance(entry, dict) and entry.get("project"))
-                  and skill_id not in dupes)
+    return sorted(skill_id for skill_id in assignments
+                  if skill_id not in view_ids and skill_id not in dupes)
 
 
 def validate_config(obj) -> list:
@@ -217,6 +236,13 @@ def load_categories_strict() -> dict:
                         empty_categories, "categories.json")
 
 
+def load_project_categories_strict(cwd, taxonomy_names) -> dict:
+    return _load_strict(
+        atlas_paths.project_categories_path(cwd),
+        lambda obj: validate_project_categories(obj, taxonomy_names),
+        empty_project_categories, "project categories.json")
+
+
 def load_config_strict() -> dict:
     return _load_strict(atlas_paths.config_path(), validate_config,
                         empty_config, "config.json")
@@ -229,6 +255,13 @@ def write_categories(obj, known_ids=None) -> None:
     if errors:
         raise CategoriesError("categories.json", errors)
     atlas_io.atomic_write_json(atlas_paths.categories_path(), obj)
+
+
+def write_project_categories(cwd, obj, taxonomy_names, known_ids=None) -> None:
+    errors = validate_project_categories(obj, taxonomy_names, known_ids=known_ids)
+    if errors:
+        raise CategoriesError("project categories.json", errors)
+    atlas_io.atomic_write_json(atlas_paths.project_categories_path(cwd), obj)
 
 
 def write_config(obj) -> None:

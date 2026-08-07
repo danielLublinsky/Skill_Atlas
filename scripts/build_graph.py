@@ -72,7 +72,14 @@ def build(cwd=None) -> tuple:
     # left the graph is environmental drift, surfaced as orphan_assignments.
     categories = atlas_categories.load_categories_strict()
     config = atlas_categories.load_config_strict()
-    assignments = categories["assignments"]
+    assignments = dict(categories["assignments"])
+    if cwd:
+        # The project view additionally merges the project's own curated
+        # file (view-local assignments; taxonomy stays global). Project
+        # entries win on id collisions, matching settings precedence.
+        project_categories = atlas_categories.load_project_categories_strict(
+            cwd, atlas_categories.taxonomy_names(categories))
+        assignments.update(project_categories["assignments"])
     searchable_plugins = set(config["searchable_plugins"])
     for skill in skills:
         entry = assignments.get(skill["id"])
