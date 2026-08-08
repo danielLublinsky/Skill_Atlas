@@ -160,7 +160,11 @@
   .menu-body label:has(input:disabled) { opacity: 0.35; cursor: default; }
   #plugin-menu .count { color: var(--text-muted); font-size: 12px;
     margin-left: auto; padding-left: 10px; }
-  #filter-menu { min-width: 205px; }
+  #filter-menu { min-width: 232px; }
+  /* the one filter that outlives the view switch, ruled off from the
+     scope-only boxes above it so the split is visible rather than learned */
+  #filter-menu label.always { margin-top: 7px; padding-top: 7px;
+    border-top: 1px solid var(--grid); }
   #stage { position: relative; flex: 1; overflow: hidden; background: var(--surface-1); }
   #canvas { width: 100%; height: 100%; display: block; cursor: grab; }
   #canvas:active { cursor: grabbing; }
@@ -186,6 +190,12 @@
   .swatch { width: 18px; height: 11px; border-radius: 3px; flex: none; }
   .swatch.circle { width: 9px; height: 9px; border-radius: 50%; margin: 0 4.5px; }
   .edge-sample { width: 18px; height: 0; border-top: 2px solid var(--baseline); flex: none; }
+  /* a closing line of prose, not a keyed row — it sits under a rule so it
+     reads as a footnote to the legend rather than another swatch */
+  #legend .legend-note { margin-top: 9px; padding-top: 7px;
+    border-top: 1px solid var(--grid); color: var(--text-muted);
+    font-size: 11.5px; line-height: 1.45; }
+  #legend .legend-note code { font-family: inherit; color: var(--text-secondary); }
 
   /* parked immediately left of the legend: a fixed reading spot beats a panel
      that chases the cursor and covers the neighbourhood being inspected */
@@ -284,6 +294,9 @@
       <label><input type="checkbox" id="t-mentions"> hide mentions</label>
       <label><input type="checkbox" id="t-dangling"> dangling only</label>
       <label><input type="checkbox" id="t-unregistered"> show unregistered</label>
+      <!-- reachability, not structure: it means the same thing in both views,
+           so it is ruled off from the scope-only boxes and stays live -->
+      <label class="always"><input type="checkbox" id="t-dormant"> hide disabled non-searchable</label>
     </div>
   </details>
   <details id="plugin-filter" class="menu">
@@ -371,8 +384,16 @@ const ctl = {
   mentions: document.getElementById("t-mentions"),
   dangling: document.getElementById("t-dangling"),
   unregistered: document.getElementById("t-unregistered"),
+  dormant: document.getElementById("t-dormant"),
   search: document.getElementById("search"),
 };
+/* a skill neither enabled nor searchable can't be reached by any path — it is
+   a file on disk and nothing more. Registered skills only: unregistered ones
+   are dormant by definition and already have their own toggle. */
+const categoriesOf = n =>
+  (n.categories && n.categories.length) ? n.categories : ["uncategorized"];
+const isDormant = n => n.type === "skill" && !n.unregDisplay && !n.dangling &&
+  !n.enabled && !n.searchable;
 /* the by-category view is a tab, not a filter: it swaps the whole picture
    (hubs + membership) rather than subtracting from the scope view */
 let viewMode = "scope";                       /* "scope" | "category" */
@@ -386,18 +407,23 @@ const structuralToggles = [ctl.files, ctl.mentions, ctl.dangling, ctl.unregister
     viewMode = btn.dataset.view;
     bar.querySelectorAll(".tab").forEach(b =>
       b.setAttribute("aria-selected", String(b.dataset.view === viewMode)));
-    /* the structural filters have no meaning in category view — the whole
-       menu goes quiet, not just the boxes inside it */
-    const wrap = document.getElementById("filter-filter");
+    /* the structural filters have no meaning in category view, so their boxes
+       grey out — but the menu itself stays reachable, because the dormant
+       toggle below them means the same thing in both views */
     structuralToggles.forEach(c => { c.disabled = isCategoryView(); });
-    wrap.classList.toggle("off", isCategoryView());
-    if (isCategoryView()) wrap.open = false;
+    if (isCategoryView()) document.getElementById("filter-filter").open = false;
+    summarizeFilters();
+    renderLegend();
     drawGraph();
   });
 })();
 /* the boxes live behind a summary now, so their state has to read from it */
 function summarizeFilters() {
-  const on = structuralToggles.filter(c => c.checked).length;
+  /* only count what is actually doing something: in category view the
+     structural boxes are disabled, so a stale "3" would be a lie */
+  const live = isCategoryView() ? [ctl.dormant]
+    : structuralToggles.concat([ctl.dormant]);
+  const on = live.filter(c => c.checked).length;
   document.getElementById("filter-summary").textContent =
     on ? `filters ${on} ▾` : "filters ▾";
 }
@@ -460,6 +486,8 @@ function activeGroups() {
   return new Set([...document.querySelectorAll("#plugin-menu input:checked")]
     .map(b => b.value));
 }
+/* the hub a skill clusters on: the first category it is filed under */
+const homeCategory = n => categoriesOf(n)[0];
 
 document.getElementById("theme").addEventListener("click", () => {
   const root = document.documentElement;
@@ -468,26 +496,51 @@ document.getElementById("theme").addEventListener("click", () => {
 });
 
 /* -------------------------------- legend -------------------------------- */
-(function legend() {
+/* the legend is the key to the picture, so it keys the picture actually on
+   screen: category view draws no files, references, mentions or dangling
+   targets, and a legend still explaining them is four lines of noise over a
+   view that can't produce them. Re-rendered on every tab switch. */
+function renderLegend() {
   const el = document.getElementById("legend");
   const scopeRows = ["user", "project", "plugin"].map(s =>
     `<div class="row"><span class="swatch" style="background:${SCOPE_COLOR[s]}"></span>${s}</div>`).join("");
+
+  if (isCategoryView()) {
+    el.innerHTML = `
+      <h2>scope</h2>${scopeRows}
+      <h2>state</h2>
+      <div class="row"><span class="swatch" style="background:color-mix(in srgb, var(--scope-plugin) 22%, var(--surface-1));border:1.5px solid var(--scope-plugin)"></span>enabled</div>
+      <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px solid var(--scope-plugin)"></span>disabled</div>
+      <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
+      <h2>membership</h2>
+      <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:2px solid var(--text-primary)"></span>category hub</div>
+      <div class="row"><span class="edge-sample"></span>home category</div>
+      <div class="row"><span class="edge-sample" style="border-top-style:dashed"></span>also filed under</div>
+      <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>
+      <div class="legend-note">hub size tracks member count · search <code>cat:name</code> to isolate one category</div>`;
+    return;
+  }
+
   el.innerHTML = `
     <h2>scope</h2>${scopeRows}
+    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px solid var(--text-muted);border-left:4px solid var(--scope-user)"></span>plugin identity bar</div>
     <h2>state</h2>
     <div class="row"><span class="swatch" style="background:color-mix(in srgb, var(--scope-plugin) 22%, var(--surface-1));border:1.5px solid var(--scope-plugin)"></span>enabled</div>
     <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px solid var(--scope-plugin)"></span>disabled</div>
-    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px dashed var(--text-muted)"></span>dangling target</div>
+    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
+    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px dashed var(--text-muted)"></span>dangling · unregistered</div>
+    <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>
     <h2>edges</h2>
     <div class="row"><span class="edge-sample"></span>references</div>
-    <div class="row"><span class="edge-sample" style="border-top-style:dotted"></span>mentions</div>
+    <div class="row"><span class="edge-sample" style="border-top-style:dashed"></span>mentions</div>
     <div class="row"><span class="edge-sample" style="border-top-color:var(--critical)"></span>broken reference</div>
     <div class="row"><span class="edge-sample" style="border-top-style:dotted;border-top-color:var(--critical)"></span>dangling mention</div>
-    <h2>catalog</h2>
-    <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:2px solid var(--text-primary)"></span>category hub</div>
-    <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
-    <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>`;
-})();
+    <h2>files</h2>
+    <div class="row"><span class="swatch circle" style="background:var(--text-muted)"></span>bundled file</div>
+    <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:1.5px solid var(--critical)"></span>file missing on disk</div>
+    <div class="legend-note">hover a node to light its neighbourhood · click to pin the panel</div>`;
+}
+renderLegend();
 
 /* -------------------------------- footer -------------------------------- */
 (function footer() {
@@ -556,7 +609,9 @@ function visibleModel() {
   const hideMentions = ctl.mentions.checked;
   const danglingOnly = ctl.dangling.checked;
   const showUnreg = ctl.unregistered.checked;
+  const hideDormant = ctl.dormant.checked;
   const active = activeGroups();
+  const reachable = n => !(hideDormant && isDormant(n));
 
   /* category view (§7.1, amended): ONLY category hubs + member skills +
      membership edges — no files, references, mentions, dangling targets or
@@ -565,12 +620,12 @@ function visibleModel() {
      their hubs. */
   if (isCategoryView()) {
     const members = allNodes.filter(n =>
-      n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n)));
+      n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n)) &&
+      reachable(n));
     const hubs = new Map();
     const memberEdges = [];
     members.forEach(n => {
-      const cats = (n.categories && n.categories.length) ? n.categories : ["uncategorized"];
-      cats.forEach((c, i) => {
+      categoriesOf(n).forEach((c, i) => {
         if (!hubs.has(c)) hubs.set(c, { id: "cat:" + c, type: "cat", name: c, count: 0 });
         hubs.get(c).count += 1;
         memberEdges.push({ source: n.id, target: "cat:" + c, kind: "member", home: i === 0 });
@@ -583,7 +638,8 @@ function visibleModel() {
   /* primary skills pass the plugin filter; files and dangling targets are
      dependent nodes — they survive only through edges from visible skills */
   const primary = new Set(allNodes.filter(n =>
-    n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n))
+    n.type === "skill" && !n.dangling && !n.unregDisplay && active.has(groupOf(n)) &&
+    reachable(n)
   ).map(n => n.id));
 
   let edges = allEdges.filter(e => {
@@ -633,8 +689,7 @@ function drawGraph() {
      clusters instead, and hubs anchor their own cluster. Files inherit the
      group of a skill that references them so bundles stay with their owner */
   const catMode = isCategoryView();
-  const homeKey = n => (n.categories && n.categories.length) ? n.categories[0] : "uncategorized";
-  const skillKey = n => catMode ? homeKey(n) : groupOf(n);
+  const skillKey = n => catMode ? homeCategory(n) : groupOf(n);
   const fileGroup = new Map();
   edges.forEach(e => {
     if (e.kind !== "references") return;
@@ -670,7 +725,14 @@ function drawGraph() {
   sim = d3.forceSimulation(nodes)
     .randomSource(rng)
     .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
-      .id(d => d.id).distance(e => e.kind === "references" ? 85 : e.kind === "member" ? 110 : 170).strength(0.5))
+      .id(d => d.id)
+      /* a skill in several categories is tied hard to its home hub and only
+         loosely to the rest: a long, weak secondary link lets it sit beside
+         the category that owns it instead of floating at the midpoint
+         between equals. Single-category skills are unaffected. */
+      .distance(e => e.kind === "references" ? 85
+        : e.kind === "member" ? (e.home ? 110 : 170) : 170)
+      .strength(e => e.kind === "member" && !e.home ? 0.22 : 0.5))
     .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
     .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
     .force("y", d3.forceY(d => centerOf(d)[1]).strength(d => d.type === "file" ? 0.05 : 0.11))
@@ -679,6 +741,12 @@ function drawGraph() {
     .stop();
   const simEdges = sim.force("link").links();
   for (let i = 0; i < 300; i++) sim.tick();   /* deterministic warm-up → same opening picture twice */
+
+  /* category hubs are landmarks, not floating nodes: once the warm-up has
+     placed them they hold still, so dragging one skill can't drift every
+     category out from under the reading. Only a drag on the hub itself
+     moves it, and it stays where the hand drops it (see drag "end") */
+  if (catMode) nodes.forEach(n => { if (n.type === "cat") { n.fx = n.x; n.fy = n.y; } });
 
   /* fit the settled layout into the viewport */
   if (nodes.length) {
@@ -696,10 +764,21 @@ function drawGraph() {
     .attr("x2", d => d.target.x).attr("y2", d => d.target.y)
     .classed("broken", d => !!(d.broken || d.kind === "dangling"))
     .attr("stroke", d => (d.broken || d.kind === "dangling") ? "var(--critical)" : "var(--baseline)")
-    .attr("stroke-width", d => d.kind === "member" ? 1.2 : 1.4)
-    .attr("stroke-dasharray", d => d.kind === "member" ? (d.home ? null : "1,3")
-      : (d.kind === "mentions" || d.kind === "dangling" ? "2,4" : null))
-    .attr("opacity", d => d.kind === "member" ? (d.home ? 0.5 : 0.3) : 0.75);
+    /* membership carries the whole category view the way references carry the
+       scope view, so it is drawn at the same weight — at the old 1.2/0.5 it
+       read as background texture next to a scope-view reference line. The
+       secondary tie stays lighter than the home tie, but as a legible dash
+       rather than a dotted whisper */
+    .attr("stroke-width", d => d.kind === "member" ? (d.home ? 1.5 : 1.4)
+      : d.kind === "mentions" ? 1.9 : 1.4)
+    /* mentions read as a firm dash rather than a faint dotted whisper: one
+       skill naming another is a real relation, and at the old weight it
+       disappeared against the reference lines */
+    .attr("stroke-dasharray", d => d.kind === "member" ? (d.home ? null : "4,3")
+      : d.kind === "mentions" ? "6,3"
+      : (d.kind === "dangling" ? "2,4" : null))
+    .attr("opacity", d => d.kind === "member" ? (d.home ? 0.8 : 0.62)
+      : d.kind === "mentions" ? 0.95 : 0.75);
 
   /* faint caption over each cluster, behind the edges — redundant in
      category view, where the hubs carry their own labels */
@@ -850,6 +929,7 @@ function drawGraph() {
     .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
     .on("end", (ev, d) => {
       if (!ev.active) sim.alphaTarget(0);
+      if (d.type === "cat") return;   /* hubs keep the position the user gave them */
       d.fx = null; d.fy = null;
     }));
 
@@ -900,7 +980,7 @@ if (useTable) {
 } else {
   drawGraph();
 }
-structuralToggles.forEach(c =>
+structuralToggles.concat([ctl.dormant]).forEach(c =>
   c.addEventListener("change", () => { summarizeFilters(); drawGraph(); }));
 summarizeFilters();   /* the >200-node default checks "hide files" for us */
 window.addEventListener("resize", () => { if (!useTable) drawGraph(); });
