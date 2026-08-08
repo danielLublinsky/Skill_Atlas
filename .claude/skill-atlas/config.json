@@ -1,6 +1,7 @@
 {
   "searchable_plugins": [
-    "superpowers"
+    "superpowers",
+    "claude-md-management"
   ],
   "version": 1
 }

@@ -89,8 +89,11 @@ violation; fix and retry.
 - The taxonomy freezes at bootstrap. Renaming or merging categories is a
   hand-edit of categories.json (taxonomy AND assignments) validated via
   `categorize.py import`, followed by a rebuild.
-- skill-atlas never writes Claude Code's own config — recommend enabling a
-  plugin, never flip `enabledPlugins` itself.
+- This skill, the build and the hooks never write Claude Code's own config —
+  recommend enabling a plugin, never flip `enabledPlugins` yourself. The one
+  exception is the `/skill-atlas:edit-searchable` command, where disabling a
+  plugin IS the user's explicit selection and is confirmed before it runs;
+  automated paths stay read-only on settings.
 - The atlas shows structure only (what is loadable, what is broken). Do NOT
   tell the user which skills are unused or "dead" — the tool does not
   measure usage, deliberately (DESIGN §6).

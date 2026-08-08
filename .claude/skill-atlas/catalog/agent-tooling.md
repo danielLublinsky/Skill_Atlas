@@ -10,31 +10,13 @@ Audit and improve CLAUDE.md files in repositories. Use when user asks to check, 
 - path: /home/danson/.claude/plugins/cache/claude-plugins-official/claude-md-management/1.0.0/skills/claude-md-improver/SKILL.md
 - also in: writing
 
-## mattpocock-skills:ask-matt [enabled]
-Ask which skill or flow fits your situation. A router over the skills in this repo.
-- path: /home/danson/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/engineering/ask-matt/SKILL.md
-
-## mattpocock-skills:handoff [enabled]
-Compact the current conversation into a handoff document for another agent to pick up.
-- path: /home/danson/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/productivity/handoff/SKILL.md
-- also in: writing
-
-## mattpocock-skills:setup-matt-pocock-skills [enabled]
-Configure this repo for the engineering skills — set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills.
-- path: /home/danson/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/engineering/setup-matt-pocock-skills/SKILL.md
-
-## mattpocock-skills:writing-for-agents [enabled]
-Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.
-- path: /home/danson/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/productivity/writing-for-agents/SKILL.md
-- also in: writing
-
 ## skill-atlas:skill-atlas [enabled]
 Graph, categorize and visualize the installed Claude Code skill collection. Use when the user asks about their skill atlas, skill graph, skill catalog, categorizing skills, making skills searchable, dangling or broken skills, disabled plugins, duplicate skill names, or wants to visualize/audit what skills are actually loadable. Triggers - "skill atlas", "skill graph", "map my skills", "categorize my skills", "skill catalog", "which skills are dead", "dangling skills", "audit my skills".
-- path: /home/danson/.claude/plugins/cache/skill-atlas/skill-atlas/0.2.1/skills/skill-atlas/SKILL.md
+- path: /home/danson/.claude/plugins/cache/skill-atlas/skill-atlas/0.4.0/skills/skill-atlas/SKILL.md
 
 ## skill-atlas:skill-search [enabled]
 Find the best skill for the current task across the entire skill library, including the dormant majority whose descriptions are never loaded into context. Use this before starting any nontrivial task — coding, debugging, git operations, planning, reviewing, writing docs, building UI, handling data or config — even when no loaded skill seems relevant and even when the user does not name a tool or domain: the library usually holds a specialist that stays invisible until searched. Returns ranked matches with descriptions, paths and usage: invoke enabled matches with the Skill tool; for dormant matches, read the SKILL.md at the returned path and follow it. Skip only for trivial one-step requests, or when an already-loaded skill obviously covers the task.
-- path: /home/danson/.claude/plugins/cache/skill-atlas/skill-atlas/0.2.1/skills/skill-search/SKILL.md
+- path: /home/danson/.claude/plugins/cache/skill-atlas/skill-atlas/0.4.0/skills/skill-search/SKILL.md
 
 ## skill-creator:skill-creator [enabled]
 Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.

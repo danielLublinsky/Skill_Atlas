@@ -345,11 +345,65 @@ def cmd_import(args) -> int:
     return 0
 
 
+def _plugin_rollup(view) -> dict:
+    """Plugin-level tier rollup — what an interactive picker needs to show.
+
+    A plugin's tier is decided by two independent facts kept in two
+    different files: whether Claude Code has it enabled (settings) and
+    whether this scope opted it in (config.json). Neither alone moves a
+    plugin, so both are reported separately — that is what lets a caller
+    explain why a plugin sits where it does, and which half is missing.
+
+    `enabled` is read from registered skills only: unregistered records are
+    hardcoded enabled=False by discovery, so a plugin whose first node
+    happened to be unregistered would otherwise read as disabled.
+    """
+    opted = view["config"]["searchable_plugins"]
+    opted_set = set(opted)
+    rows = {}
+    for node in view["graph"].get("nodes", []):
+        if node.get("type") != "skill" or node.get("scope") != "plugin":
+            continue
+        name = node.get("plugin")
+        if not name:
+            continue
+        row = rows.get(name)
+        if row is None:
+            key = node.get("plugin_key")
+            row = rows[name] = {"plugin": name, "plugin_key": key,
+                                "enabled": None, "skills": 0,
+                                "opted_in": name in opted_set or key in opted_set}
+        if node.get("registered"):
+            row["skills"] += 1
+            row["enabled"] = bool(node.get("enabled"))
+
+    for row in rows.values():
+        row["enabled"] = bool(row["enabled"])
+        row["tier"] = ("enabled" if row["enabled"]
+                       else "searchable" if row["opted_in"] else "off")
+
+    known = set(rows) | {row["plugin_key"] for row in rows.values() if row["plugin_key"]}
+    plugins = [rows[name] for name in sorted(rows)]
+    return {
+        "plugins": plugins,
+        "searchable_plugins": opted,
+        # An opt-in naming no installed plugin is drift, not an error: the
+        # plugin may be uninstalled or renamed. Surfaced so it can be cleaned.
+        "orphan_opt_ins": [name for name in opted if name not in known],
+        "counts": {tier: sum(1 for row in plugins if row["tier"] == tier)
+                   for tier in ("enabled", "searchable", "off")},
+    }
+
+
 def cmd_config(args) -> int:
     view = _view(args)
     config = view["config"]
-    if not (args.show or args.add or args.remove):
-        return _fail(["one of --show / --add-searchable / --remove-searchable is required"])
+    if not (args.show or args.list or args.add or args.remove):
+        return _fail(["one of --show / --list / --add-searchable / "
+                      "--remove-searchable is required"])
+    if args.list:
+        print(json.dumps(_plugin_rollup(view), indent=2, sort_keys=True))
+        return 0
     if args.show:
         print(json.dumps(config, indent=2, sort_keys=True))
         return 0
@@ -414,8 +468,10 @@ def main(argv=None) -> int:
     p.add_argument("path")
     p.set_defaults(func=cmd_import)
 
-    p = sub.add_parser("config", help="searchable-plugins opt-in (always global)")
+    p = sub.add_parser("config", help="this scope's searchable-plugins opt-in")
     p.add_argument("--show", action="store_true")
+    p.add_argument("--list", action="store_true",
+                   help="per-plugin tier rollup: enabled, opted-in, skill count")
     p.add_argument("--add-searchable", dest="add", metavar="PLUGIN")
     p.add_argument("--remove-searchable", dest="remove", metavar="PLUGIN")
     p.add_argument("--force", action="store_true")

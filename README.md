@@ -42,10 +42,39 @@ is in the same file.
 
 ```bash
 python3 scripts/build_graph.py   # manifests + skill roots → graph.json + catalog/ shards
-python3 scripts/render.py        # graph.json → ~/.claude/skill-atlas/atlas.html
+python3 scripts/render.py        # graph.json → ./.claude/skill-atlas/atlas.html
 python3 scripts/categorize.py status            # categorization TODO list
+python3 scripts/categorize.py config --list     # per-plugin tier rollup
 python3 scripts/categorize.py config --add-searchable <plugin>   # opt a disabled plugin into the searchable tier
 ```
+
+## Managing the searchable tier
+
+A plugin is searchable only when **both** halves hold: Claude Code has it
+disabled, and this scope opted it in. `--add-searchable` is the second
+half only — on a still-enabled plugin it changes nothing, because
+`enabled` wins the tier resolution. The first half is
+`claude plugin disable <plugin>`.
+
+`/skill-atlas:edit-searchable` does both, interactively. It lists every
+plugin with its tier, skill count and per-session token cost, always asks
+first whether you are **adding** or **removing** (both can run in one pass),
+multi-selects the plugins, asks which settings scope to write, then
+categorizes any skills that arrived since the last `/skill-atlas` run and
+rebuilds the catalog and `atlas.html`. Removing a plugin from the tier
+leaves it **off**, not enabled — the command asks which you meant.
+
+The unit is a plugin, not an individual skill: selecting one moves all its
+skills together (per-skill overrides are deferred — DESIGN-PHASE2 §10).
+
+Categorization is tier-blind — every *registered* skill gets filed whatever
+its tier — so a plugin already covered by `/skill-atlas` needs nothing extra
+when you opt it in; its skills just start appearing in shards.
+
+Pick the settings scope to match `config.json`, which is committed:
+`--scope project` keeps the disable and the opt-in travelling together.
+`--scope user` disables the plugin machine-wide while only this project can
+search it.
 
 Categorization itself runs inside `/skill-atlas` (the one place a model
 is present): first run bootstraps 8–12 categories over every skill

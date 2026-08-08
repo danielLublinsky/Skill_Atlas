@@ -39,10 +39,14 @@
       "Read(//tmp/**)",
       "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/check_stale.py)",
       "Bash(echo \"exit $?, stdout above \\(empty = inert\\)\")",
-      "Bash(python3 -m unittest discover -s /home/danson/dev-stuff/Skill_Atlas/tests)"
+      "Bash(python3 -m unittest discover -s /home/danson/dev-stuff/Skill_Atlas/tests)",
+      "Bash(awk '/^### 3\\\\.2/,/^### 3\\\\.3/' DESIGN-PHASE2.md)",
+      "Bash(claude plugin *)",
+      "Bash(python3 scripts/categorize.py config --list)"
     ],
     "additionalDirectories": [
-      "/home/danson/.claude/skill-atlas"
+      "/home/danson/.claude/skill-atlas",
+      "/home/danson/dev-stuff/Skill_Atlas/scripts"
     ]
   }
 }

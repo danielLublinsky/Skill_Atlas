@@ -295,6 +295,41 @@ class TestCLI(unittest.TestCase):
             proc = _cli("config", "--remove-searchable", "no-such-plugin")
             self.assertEqual(proc.returncode, 3)
 
+    def test_config_list_rollup(self):
+        def rows():
+            proc = _cli("config", "--list")
+            assert proc.returncode == 0, proc.stderr
+            payload = json.loads(proc.stdout)
+            return payload, {row["plugin"]: row for row in payload["plugins"]}
+
+        with helpers.EnvSandbox(copy_fixtures=True):
+            _build_global()
+            payload, by_name = rows()
+            self.assertEqual(by_name["alpha"]["tier"], "enabled")
+            self.assertEqual(by_name["beta"]["tier"], "off")
+            self.assertFalse(by_name["beta"]["opted_in"])
+            self.assertGreaterEqual(by_name["beta"]["skills"], 1)
+
+            # The rollup reads config.json live — a fresh opt-in shows up
+            # without a rebuild, which is what makes it usable as a picker.
+            self.assertEqual(_cli("config", "--add-searchable", "beta").returncode, 0)
+            payload, by_name = rows()
+            self.assertEqual(by_name["beta"]["tier"], "searchable")
+            self.assertEqual(payload["counts"]["searchable"], 1)
+
+            # Opting in an ENABLED plugin moves nothing: the disable is the
+            # other half. The picker must not report otherwise.
+            self.assertEqual(_cli("config", "--add-searchable", "alpha").returncode, 0)
+            _, by_name = rows()
+            self.assertTrue(by_name["alpha"]["opted_in"])
+            self.assertEqual(by_name["alpha"]["tier"], "enabled")
+
+            # An opt-in naming no installed plugin is drift, not an error.
+            self.assertEqual(
+                _cli("config", "--add-searchable", "ghost", "--force").returncode, 0)
+            payload, _ = rows()
+            self.assertEqual(payload["orphan_opt_ins"], ["ghost"])
+
 
 if __name__ == "__main__":
     unittest.main()
