@@ -14,7 +14,8 @@ import build_graph
 
 
 def _build_global():
-    return build_graph.main(["--global-only", "--quiet", "--cwd", os.getcwd()])
+    neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
+    return build_graph.main(["--quiet", "--cwd", neutral])
 
 
 def _cli(*args, stdin_text=None, cwd=None):
@@ -121,27 +122,6 @@ class TestValidation(unittest.TestCase):
             with self.assertRaises(atlas_categories.CategoriesError):
                 atlas_categories.load_categories_strict()
 
-    def test_project_schema(self):
-        good_hash = atlas_categories.desc_hash("d")
-        names = {"eng", "docs"}
-        ok = {"version": 1, "assignments": {"proj-skill": {
-            "categories": ["eng"], "desc_hash": good_hash,
-            "assigned_at": "2026-08-08"}}}
-        self.assertEqual(
-            atlas_categories.validate_project_categories(ok, names), [])
-        # A project file must never carry its own taxonomy.
-        forked = dict(ok, taxonomy=[{"name": "rogue", "description": "x"}])
-        errors = atlas_categories.validate_project_categories(forked, names)
-        self.assertTrue(any("taxonomy lives only in the global" in e
-                            for e in errors))
-        # Labels validate against the GLOBAL taxonomy.
-        bad = {"version": 1, "assignments": {"proj-skill": {
-            "categories": ["nope"], "desc_hash": good_hash,
-            "assigned_at": "2026-08-08"}}}
-        errors = atlas_categories.validate_project_categories(bad, names)
-        self.assertTrue(any("'nope' is not in the taxonomy" in e
-                            for e in errors))
-
     def test_config_validation(self):
         errors = atlas_categories.validate_config(
             {"version": 1, "searchable_plugins": ["a", "a"]})
@@ -224,7 +204,7 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(proc.returncode, 3)
             self.assertIn("not bootstrapped", proc.stderr)
 
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             before = _read_categories()["assignments"]
 
             proc = _cli("assign",
@@ -245,7 +225,7 @@ class TestCLI(unittest.TestCase):
     def test_confirm_refreshes_stale(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             _build_global()
-            obj = helpers.approved_categories()
+            obj = helpers.approved_categories(sandbox)
             obj["assignments"]["alpha:one"]["desc_hash"] = \
                 atlas_categories.desc_hash("something else entirely")
             helpers.write_categories(sandbox, obj)
@@ -266,7 +246,7 @@ class TestCLI(unittest.TestCase):
     def test_add_category_then_assign(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             _build_global()
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             proc = _cli("add-category", "misc", "everything else")
             self.assertEqual(proc.returncode, 0, proc.stderr)
             proc = _cli("assign",
@@ -282,7 +262,7 @@ class TestCLI(unittest.TestCase):
     def test_import(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             _build_global()
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             edited = _read_categories()
             edited["taxonomy"].append({"name": "extra", "description": "imported"})
             path = sandbox.tmp / "edited.json"

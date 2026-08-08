@@ -105,13 +105,14 @@ def _root_skill_dirs(root: Path):
             yield child / "SKILL.md"
 
 
-def discover(cwd=None, light=False) -> dict:
-    """Walk order: user root → project root → installed plugins (allowlist or
-    flat glob). Returns registered skills, the unregistered index, collision
-    info and the plugin records. light=True skips all file reads (stat/paths
-    only) — the fingerprint uses it, so enumeration logic cannot drift
-    between staleness checking and building."""
-    enabled_map = atlas_paths.merged_enabled_plugins(cwd)
+def discover(light=False) -> dict:
+    """Walk order: user root → the scope's own skills root → installed
+    plugins (allowlist or flat glob). Returns registered skills, the
+    unregistered index, collision info and the plugin records. light=True
+    skips all file reads (stat/paths only) — the fingerprint uses it, so
+    enumeration logic cannot drift between staleness checking and
+    building."""
+    enabled_map = atlas_paths.merged_enabled_plugins()
     skills = []
     unregistered = []
     registered_paths = set()
@@ -121,7 +122,8 @@ def discover(cwd=None, light=False) -> dict:
         skills.append(_skill_record(skill_md, "user", light=light))
         registered_paths.add(str(skill_md.resolve()))
 
-    project_root = Path(cwd) / ".claude" / "skills" if cwd else None
+    project_root = (atlas_paths.local_skills_root()
+                    if atlas_paths.has_local_skills_root() else None)
     if project_root:
         for skill_md in _root_skill_dirs(project_root):
             skills.append(_skill_record(skill_md, "project", light=light))
@@ -207,22 +209,22 @@ def _assign_ids(skills) -> list:
     return duplicates
 
 
-def skill_md_paths(cwd=None) -> list:
+def skill_md_paths() -> list:
     """Every SKILL.md the graph depends on (registered + unregistered index),
     with no file reads — the §5.1 fingerprint input."""
-    result = discover(cwd=cwd, light=True)
+    result = discover(light=True)
     return [Path(s["path"]) for s in result["skills"] + result["unregistered"]]
 
 
-def naive_skillmd_count(cwd=None) -> int:
+def naive_skillmd_count() -> int:
     """What 'any directory containing SKILL.md' would have found: everything
     under the claude dir (cache incl. stale versions, marketplaces) plus the
     roots. Diagnostic only — the number the manifest-driven walk avoids."""
     count = 0
     seen = set()
     roots = [atlas_paths.claude_dir()]
-    if cwd:
-        roots.append(Path(cwd) / ".claude" / "skills")
+    if atlas_paths.has_local_skills_root():
+        roots.append(atlas_paths.local_skills_root())
     for root in roots:
         try:
             for skill_md in root.rglob("SKILL.md"):

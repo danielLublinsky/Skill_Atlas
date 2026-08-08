@@ -1,13 +1,18 @@
-"""SessionStart hook — rebuild graph.json when it is stale (DESIGN §5.1)
-and inject the skill-library index line (DESIGN-PHASE2 §6).
+"""SessionStart hook — rebuild this scope's graph when it is stale
+(DESIGN §5.1) and inject the skill-library index line (DESIGN-PHASE2 §6).
+
+Fully scope-local: the hook operates on `<cwd>/.claude/skill-atlas/` and
+ONLY where that directory already exists — a directory becomes a scope the
+first time an explicit run (build_graph.py or /skill-atlas) creates it;
+the hook never initializes anything, so sessions in untouched directories
+stay untouched.
 
 Hook invariants (§6.1): always exit 0, swallow every exception, never
 block. A slow hook is worse than a stale graph — the fingerprint walk
 aborts at 2 s and lets the session proceed. Stdout carries ONLY the
 documented SessionStart JSON contract — one hookSpecificOutput line, and
-only when the dormant (searchable) tier is nonempty; a Phase-2-inert
-install stays byte-identical to Phase 1: empty stdout. (Deliberate
-revision of the original "never write to stdout" invariant.)
+only when the dormant (searchable) tier is nonempty; an uninitialized or
+Phase-2-inert scope stays byte-identical to Phase 1: empty stdout.
 """
 
 import json
@@ -59,9 +64,9 @@ def index_line(graph):
 
 
 def run():
-    """Rebuild stale views; return the freshest global graph dict (already
-    in hand after a rebuild, lazily read otherwise) so main() can emit the
-    index line — or None when unavailable."""
+    """Rebuild this scope's graph if stale; return the freshest graph dict
+    (for the index line) — or None when the scope is uninitialized,
+    autobuild is off, or the deadline hit."""
     import atlas_discovery
     import atlas_fingerprint
     import atlas_io
@@ -71,72 +76,56 @@ def run():
 
     if not atlas_paths.autobuild_enabled():
         return None
+    cwd = os.getcwd()
+    atlas_paths.set_scope(cwd)
+    if not atlas_paths.initialized():
+        return None   # never-initialized directory: the hook stays inert
+
     started = time.monotonic()
     deadline = started + FINGERPRINT_DEADLINE_SECONDS
-    cwd = os.getcwd()
-    dirty = atlas_paths.dirty_path().exists()
+    graph_file = atlas_paths.graph_path()
 
-    def stored_fingerprint(graph_file):
+    def stored_fingerprint():
         try:
             return json.loads(graph_file.read_text(encoding="utf-8")).get("source_fingerprint")
         except (OSError, ValueError):
             return None
 
-    def stale_reason(graph_file, view_cwd):
-        """None = fresh; otherwise why this view needs a rebuild."""
-        if dirty:
-            return "dirty-flag"
-        stored = stored_fingerprint(graph_file)
+    reason = None
+    if atlas_paths.dirty_path().exists():
+        reason = "dirty-flag"
+    else:
+        stored = stored_fingerprint()
         if stored is None:
-            return "no-graph"
-        current = atlas_fingerprint.compute(
-            atlas_discovery.skill_md_paths(view_cwd),
-            atlas_paths.manifest_paths(view_cwd), deadline=deadline)
-        if current is None:
-            return "deadline"
-        return "fingerprint-mismatch" if current != stored else None
+            reason = "no-graph"
+        else:
+            current = atlas_fingerprint.compute(
+                atlas_discovery.skill_md_paths(),
+                atlas_paths.manifest_paths(), deadline=deadline)
+            if current is None:
+                atlas_io.debug_note("check_stale", "fingerprint-deadline-exceeded")
+                return None
+            if current != stored:
+                reason = "fingerprint-mismatch"
 
-    # Two views, each judged against its own scope: global (machine-level,
-    # cwd=None) and — when the cwd carries its own .claude/ — the project
-    # view, whose fingerprint additionally covers project skills + settings.
-    views = [("global", None, atlas_paths.graph_path())]
-    if atlas_paths.is_project(cwd):
-        views.append(("project", cwd, atlas_paths.project_graph_path(cwd)))
-
-    rebuilt = []
-    global_graph = None
-    for name, view_cwd, graph_file in views:
-        reason = stale_reason(graph_file, view_cwd)
-        if reason == "deadline":
-            atlas_io.debug_note("check_stale", f"{name} fingerprint-deadline-exceeded")
-            return global_graph
-        if reason is None:
-            continue
-        graph, _ = build_graph.build(cwd=view_cwd)
+    if reason:
+        graph, _ = build_graph.build(cwd=cwd)
         atlas_io.atomic_write_json(graph_file, graph)
-        if view_cwd is None:
-            # A hook rebuild must not leave the search shards stale — a
-            # handful of small atomic writes, well inside the 10s budget.
-            atlas_shards.emit(graph)
-            global_graph = graph
-        rebuilt.append(f"{name}={reason}")
-
-    if rebuilt:
+        atlas_shards.emit(graph)
         try:
             atlas_paths.dirty_path().unlink()
         except OSError:
             pass
-    total_ms = int((time.monotonic() - started) * 1000)
-    status = "rebuilt " + ",".join(rebuilt) if rebuilt else "fresh"
-    atlas_io.debug_note("check_stale", f"{status} total_ms={total_ms}")
-
-    if global_graph is None:
+    else:
         try:
-            global_graph = json.loads(
-                atlas_paths.graph_path().read_text(encoding="utf-8"))
+            graph = json.loads(graph_file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            global_graph = None
-    return global_graph
+            graph = None
+
+    total_ms = int((time.monotonic() - started) * 1000)
+    status = f"rebuilt {reason}" if reason else "fresh"
+    atlas_io.debug_note("check_stale", f"{status} total_ms={total_ms}")
+    return graph
 
 
 def main() -> int:

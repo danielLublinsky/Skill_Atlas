@@ -5,14 +5,10 @@ this CLI, which validates against the schema and the current graph before
 an atomic replace (DESIGN-PHASE2 §3.1, §4). Payload-taking subcommands read
 JSON on stdin (heredoc-friendly under the command's Bash(python3:*) grant).
 
-Curated state is split per scope: the GLOBAL file
-(~/.claude/skill-atlas/categories.json) holds the frozen taxonomy plus
-assignments for user and plugin skills; each project's
-.claude/skill-atlas/categories.json holds only that project's view-local
-assignments (project-scope skills and collision-renamed name@scope ids) —
-committable with the repo, never carrying a taxonomy of its own. Run from
-a project directory, this CLI operates on that project's view and routes
-each write to the right file automatically.
+Everything is scope-local: the directory this runs in (or --cwd) carries
+its own complete categories.json — taxonomy AND assignments — under its
+`.claude/skill-atlas/`, committable with the repo. Different directories
+are fully independent worlds; there is no global state.
 
 Exit codes:
   0  success (warnings may appear on stderr)
@@ -71,37 +67,25 @@ def _env_error_from(exc) -> EnvError:
     return EnvError("\n".join(lines))
 
 
-def _load_graph(cwd) -> dict:
-    path = (atlas_paths.project_graph_path(cwd) if atlas_paths.is_project(cwd)
-            else atlas_paths.graph_path())
+def _view(args) -> dict:
+    """Everything a command needs about this scope: its graph and its two
+    curated files. Different directories are independent worlds."""
+    atlas_paths.set_scope(args.cwd or os.getcwd())
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        graph = json.loads(atlas_paths.graph_path().read_text(encoding="utf-8"))
     except FileNotFoundError:
-        raise EnvError(f"no graph at {path} — run build_graph.py first")
+        raise EnvError(f"no graph at {atlas_paths.graph_path()} — "
+                       "run build_graph.py first")
     except (OSError, ValueError) as exc:
         raise EnvError(f"unreadable graph.json ({type(exc).__name__}) — rebuild it")
-
-
-def _view(args) -> dict:
-    """Everything a command needs about the current view: the graph, both
-    curated files (project one only inside a project), and the merged
-    assignment map the view actually sees."""
-    cwd = args.cwd or os.getcwd()
-    graph = _load_graph(cwd)
     try:
         categories = atlas_categories.load_categories_strict()
         config = atlas_categories.load_config_strict()
-        names = atlas_categories.taxonomy_names(categories)
-        project = (atlas_categories.load_project_categories_strict(cwd, names)
-                   if atlas_paths.is_project(cwd) else None)
     except atlas_categories.CategoriesError as exc:
         raise _env_error_from(exc)
-    merged = dict(categories["assignments"])
-    if project is not None:
-        merged.update(project["assignments"])
-    return {"cwd": cwd, "graph": graph, "categories": categories,
-            "config": config, "project": project, "merged": merged,
-            "names": names}
+    return {"graph": graph, "categories": categories, "config": config,
+            "merged": categories["assignments"],
+            "names": atlas_categories.taxonomy_names(categories)}
 
 
 def _registered(graph) -> list:
@@ -111,12 +95,6 @@ def _registered(graph) -> list:
 
 def _registered_map(graph) -> dict:
     return {n["id"]: n for n in _registered(graph)}
-
-
-def _is_view_local(node) -> bool:
-    """View-local skills live in the PROJECT curated file: project-scope
-    skills, and collision-renamed ids that only exist in project views."""
-    return node.get("scope") == "project" or bool(node.get("duplicate"))
 
 
 def _make_entry(node, labels, today) -> dict:
@@ -166,28 +144,9 @@ def _payload_assignments(payload, taxonomy_labels, known_ids) -> dict:
     return raw
 
 
-def _write_split(view, updates) -> None:
-    """Route each {id: entry} update to its home file and write whichever
-    files were touched, global first (the taxonomy anchors validation)."""
-    registered_by_id = _registered_map(view["graph"])
-    touched_global = touched_project = False
-    for skill_id, entry in updates.items():
-        node = registered_by_id[skill_id]
-        if _is_view_local(node):
-            if view["project"] is None:
-                raise PayloadError([f"{skill_id!r} is view-local but the current "
-                                    "directory is not a project"])
-            view["project"]["assignments"][skill_id] = entry
-            touched_project = True
-        else:
-            view["categories"]["assignments"][skill_id] = entry
-            touched_global = True
-    if touched_global:
-        atlas_categories.write_categories(view["categories"])
-    if touched_project:
-        atlas_categories.write_project_categories(
-            view["cwd"], view["project"],
-            atlas_categories.taxonomy_names(view["categories"]))
+def _write_updates(view, updates) -> None:
+    view["categories"]["assignments"].update(updates)
+    atlas_categories.write_categories(view["categories"])
 
 
 def _require_bootstrapped(categories) -> None:
@@ -276,7 +235,7 @@ def cmd_bootstrap(args) -> int:
         # Global file is written even if only project entries exist — the
         # taxonomy freeze lives there.
         atlas_categories.write_categories(view["categories"])
-        _write_split(view, updates)
+        _write_updates(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
 
@@ -303,7 +262,7 @@ def cmd_assign(args) -> int:
     updates = {skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
                for skill_id, labels_for in raw.items()}
     try:
-        _write_split(view, updates)
+        _write_updates(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"assigned {len(raw)} skill(s)")
@@ -331,7 +290,7 @@ def cmd_confirm(args) -> int:
         entry["assigned_at"] = today
         updates[skill_id] = entry
     try:
-        _write_split(view, updates)
+        _write_updates(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"confirmed {len(args.ids)} assignment(s)")
@@ -363,11 +322,7 @@ def cmd_import(args) -> int:
     except ValueError as exc:
         return _fail([f"{args.path}: unparseable JSON: {exc}"])
 
-    project_mode = view["project"] is not None
-    if project_mode:
-        errors = atlas_categories.validate_project_categories(obj, view["names"])
-    else:
-        errors = atlas_categories.validate_categories(obj)
+    errors = atlas_categories.validate_categories(obj)
     if errors:
         return _fail([f"{args.path}: {line}" for line in errors])
 
@@ -378,25 +333,15 @@ def cmd_import(args) -> int:
         # skills that left the graph — surfaced, never rejected.
         _warn([f"{len(orphans)} assignment(s) for skills not in the graph: "
                + ", ".join(orphans)])
-    if project_mode:
-        merged_after = dict(view["categories"]["assignments"])
-        merged_after.update(obj.get("assignments", {}))
-    else:
-        merged_after = dict(obj.get("assignments", {}))
-    uncovered = sorted(known - set(merged_after))
+    uncovered = sorted(known - set(obj.get("assignments", {})))
     if uncovered:
         _warn([f"{len(uncovered)} registered skill(s) not covered: "
                + ", ".join(uncovered)
                + " — every skill must be categorized; run /skill-atlas"])
 
-    if project_mode:
-        atlas_categories.write_project_categories(view["cwd"], obj, view["names"])
-        print(f"imported into project categories.json: "
-              f"{len(obj['assignments'])} assignments")
-    else:
-        atlas_categories.write_categories(obj)
-        print(f"imported: {len(obj['taxonomy'])} categories, "
-              f"{len(obj['assignments'])} assignments")
+    atlas_categories.write_categories(obj)
+    print(f"imported: {len(obj['taxonomy'])} categories, "
+          f"{len(obj['assignments'])} assignments")
     return 0
 
 

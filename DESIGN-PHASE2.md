@@ -70,7 +70,20 @@ and these amendments override it where they conflict.
    `.claude/skill-atlas` of their scope; §3.4's "under SKILL_ATLAS_HOME" and §5's shard
    location now read `~/.claude/skill-atlas/`. Tests and dev/smoke_live.py isolate via
    `SKILL_ATLAS_CLAUDE_DIR` (smoke symlinks real inputs into a temp claude dir).
-8. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
+8. **Fully project-local — no global state at all (2026-08-08, user decision; supersedes the
+   split in amendment 7).** Every artifact and curated file lives in
+   `<scope>/.claude/skill-atlas/`, where the scope is the directory skill-atlas runs in:
+   graph, atlas, catalog shards, a COMPLETE per-scope categories.json (its own taxonomy —
+   scopes bootstrap independently and may diverge), config.json, dirty marker and debug log.
+   Auto-init: an explicit build in any directory creates its atlas dir; the hooks operate only
+   where that dir already exists and never initialize one (sessions in untouched directories
+   stay untouched, and emit nothing). skill-search reads `./.claude/skill-atlas/catalog/` and
+   never falls back to another directory. The dual-view machinery, the global/project curated
+   split and the cross-view orphan rules are all deleted; `SKILL_ATLAS_HOME` stays removed and
+   the previous global state was retired without migration (fresh start — each scope
+   re-bootstraps autonomously on its next /skill-atlas run). Inputs are unchanged: discovery
+   still reads the machine's plugins, user skills and settings from `~/.claude`.
+9. **Measured token costs (M4, on the author's 45-skill / 10-category collection):**
    `_index.md` ≈ 650 tokens (above the §5 estimate — the derived token lists are what grew it),
    shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one
    shard ≈ 1.2–1.7k tokens, versus ~5k+ for a flat catalog read — the §5 arbitrage holds. The

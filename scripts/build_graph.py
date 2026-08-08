@@ -57,9 +57,12 @@ def _classify_mention(source, token, registered_by_id, by_name, unreg_lookup,
 
 
 def build(cwd=None) -> tuple:
-    """Returns (graph, exit_code). Raises on unbuildable environments —
-    main() maps that to exit 2."""
-    discovery = atlas_discovery.discover(cwd=cwd)
+    """Build the one local view of this scope: the machine collection plus
+    the scope's own skills, with the scope's settings overrides. Returns
+    (graph, exit_code). Raises on unbuildable environments — main() maps
+    that to exit 2."""
+    atlas_paths.set_scope(cwd)
+    discovery = atlas_discovery.discover()
     skills = discovery["skills"]
     unregistered = discovery["unregistered"]
     plugin_names = {p["name"] for p in discovery["plugins"]}
@@ -72,14 +75,7 @@ def build(cwd=None) -> tuple:
     # left the graph is environmental drift, surfaced as orphan_assignments.
     categories = atlas_categories.load_categories_strict()
     config = atlas_categories.load_config_strict()
-    assignments = dict(categories["assignments"])
-    if cwd:
-        # The project view additionally merges the project's own curated
-        # file (view-local assignments; taxonomy stays global). Project
-        # entries win on id collisions, matching settings precedence.
-        project_categories = atlas_categories.load_project_categories_strict(
-            cwd, atlas_categories.taxonomy_names(categories))
-        assignments.update(project_categories["assignments"])
+    assignments = categories["assignments"]
     searchable_plugins = set(config["searchable_plugins"])
     for skill in skills:
         entry = assignments.get(skill["id"])
@@ -169,7 +165,7 @@ def build(cwd=None) -> tuple:
 
     skill_paths = [s["path"] for s in skills + unregistered if s.get("path")]
     fingerprint = atlas_fingerprint.compute(skill_paths,
-                                            atlas_paths.manifest_paths(cwd))
+                                            atlas_paths.manifest_paths())
 
     nodes = ([{k: v for k, v in s.items() if k != "plugin_key" or v} for s in skills]
              + [dangling_nodes[k] for k in sorted(dangling_nodes)]
@@ -192,8 +188,9 @@ def build(cwd=None) -> tuple:
         "version": 3,
         "generated_at": datetime.datetime.now(datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "view": "project" if cwd else "global",
-        "project": Path(cwd).resolve().name if cwd else None,
+        "view": "local",
+        "scope": str(atlas_paths.scope().resolve()),
+        "project": atlas_paths.scope().resolve().name,
         "roots": discovery["roots"],
         "source_fingerprint": fingerprint,
         # The frozen taxonomy rides along so shards and the category view
@@ -219,7 +216,7 @@ def build(cwd=None) -> tuple:
             "orphans": len(orphans),
             "orphan_ids": sorted(orphans),
             "duplicate_names": discovery["duplicate_names"],
-            "skillmd_on_disk": atlas_discovery.naive_skillmd_count(cwd),
+            "skillmd_on_disk": atlas_discovery.naive_skillmd_count(),
             # TODO states for the next /skill-atlas run — never defects, so
             # never part of the exit code (DESIGN-PHASE2 §3.3).
             "uncategorized": sum(1 for s in skills if not s["categories"]),
@@ -240,7 +237,7 @@ def build(cwd=None) -> tuple:
 
 def report(graph, stream=sys.stdout):
     stats = graph["stats"]
-    label = ("project:" + graph["project"]) if graph["view"] == "project" else "global"
+    label = graph.get("project") or "local"
     todo = []
     if stats["uncategorized"]:
         todo.append(f"{stats['uncategorized']} uncategorized")
@@ -267,46 +264,24 @@ def main(argv=None) -> int:
     parser.add_argument("--check", action="store_true",
                         help="build and report without writing graph.json")
     parser.add_argument("--cwd", default=None,
-                        help="project directory (default: cwd)")
-    parser.add_argument("--global-only", action="store_true",
-                        help="build only the machine-level view")
-    parser.add_argument("--project-only", action="store_true",
-                        help="build only the current project's view")
+                        help="scope directory (default: cwd); its "
+                             ".claude/skill-atlas is created on first write")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
     cwd = args.cwd or os.getcwd()
 
-    # Global = machine-level (user skills + plugins, user settings). Project =
-    # the same full registered set with the project's skills and its own
-    # enabledPlugins overrides, written INTO the project folder.
-    targets = []
-    if not args.project_only:
-        targets.append((None, atlas_paths.graph_path()))
-    if not args.global_only and atlas_paths.is_project(cwd):
-        targets.append((cwd, atlas_paths.project_graph_path(cwd)))
-    if args.project_only and not targets:
-        print(f"skill-atlas: {cwd} is not a project (no .claude/ directory)",
-              file=sys.stderr)
-        return 2
-
-    worst = 0
     try:
-        for view_cwd, out_path in targets:
-            graph, exit_code = build(cwd=view_cwd)
-            worst = max(worst, exit_code)
-            if not args.check:
-                atlas_io.atomic_write_json(out_path, graph)
-                if view_cwd is None:
-                    # Search shards derive from the global view only
-                    # (project-faceted shards deferred, DESIGN-PHASE2 §10.4).
-                    atlas_shards.emit(graph)
-            if not args.quiet:
-                report(graph)
+        graph, worst = build(cwd=cwd)
         if not args.check:
+            # Auto-init: the atomic writes create .claude/skill-atlas here.
+            atlas_io.atomic_write_json(atlas_paths.graph_path(), graph)
+            atlas_shards.emit(graph)
             try:
                 atlas_paths.dirty_path().unlink()
             except OSError:
                 pass
+        if not args.quiet:
+            report(graph)
     except atlas_categories.CategoriesError as exc:
         # Decision: invalid CURATED state fails loud, naming every violation
         # (the file is the user's own — this is not the debug.log privacy

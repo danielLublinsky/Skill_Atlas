@@ -49,4 +49,6 @@ phase2-check:
 	@echo "     skills hang between hubs, searchable skills show the halo"
 
 clean:
-	rm -f graph.json atlas.html
+	rm -rf .claude/skill-atlas/graph.json .claude/skill-atlas/atlas.html \
+	       .claude/skill-atlas/catalog .claude/skill-atlas/graph.dirty \
+	       .claude/skill-atlas/debug.log

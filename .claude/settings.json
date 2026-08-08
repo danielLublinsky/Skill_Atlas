@@ -31,7 +31,18 @@
       "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/categorize.py status)",
       "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('view:', s['view'], s['project'], '| counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")",
       "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/categorize.py --cwd /tmp status)",
-      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('global counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")"
+      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('global counts:', s['counts'], '| orphans:', s['orphan_assignments']\\)\")",
+      "Bash(tar czf *)",
+      "Bash(tar tzf *)",
+      "Bash(echo \"build exit $? \\(1 = pre-existing dangling findings\\)\")",
+      "Bash(python3 -c \"import json,sys; s=json.load\\(sys.stdin\\); print\\('scope:', s['project'], '| skills:', s['counts']['skills'], '| bootstrapped:', s['bootstrapped']\\)\")",
+      "Read(//tmp/**)",
+      "Bash(python3 /home/danson/dev-stuff/Skill_Atlas/scripts/check_stale.py)",
+      "Bash(echo \"exit $?, stdout above \\(empty = inert\\)\")",
+      "Bash(python3 -m unittest discover -s /home/danson/dev-stuff/Skill_Atlas/tests)"
+    ],
+    "additionalDirectories": [
+      "/home/danson/.claude/skill-atlas"
     ]
   }
 }

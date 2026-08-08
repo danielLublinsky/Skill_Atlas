@@ -3,9 +3,9 @@
 
 Never hard-codes counts — the doc's numbers drifted within days of being
 written. Every comparison recomputes both sides at runtime. Isolation:
-a temp claude dir whose inputs (skills, plugins, settings) are symlinks to
-the real ~/.claude, with a fresh skill-atlas/ for artifacts — the real
-machine is only ever read.
+inputs (skills, plugins, settings) come through a temp claude dir of
+symlinks to the real ~/.claude, and artifacts land in a throwaway scope
+directory — the real machine is only ever read.
 
 Covers: M1 (manifest-driven counts), M2 (dangling detection incl. the known
 setup-matt-pocock-skills → qa defect when that plugin is installed),
@@ -77,16 +77,17 @@ def main() -> int:
         src = real / name
         if src.exists():
             (fake / name).symlink_to(src)
-    (fake / "skill-atlas").mkdir()
     os.environ["SKILL_ATLAS_CLAUDE_DIR"] = str(fake)
+    scope_dir = tmp / "scope"   # a neutral throwaway scope for artifacts
+    scope_dir.mkdir()
 
     import atlas_paths
     import build_graph
     import render
 
     claude_dir = atlas_paths.claude_dir()
-    cwd = Path.cwd()
-    print(f"smoke: inputs={real} artifacts={fake / 'skill-atlas'}\n")
+    cwd = scope_dir
+    print(f"smoke: inputs={real} artifacts={scope_dir / '.claude' / 'skill-atlas'}\n")
 
     print("M1 — manifest-driven discovery")
     graph, exit_code = build_graph.build(cwd=cwd)
@@ -102,7 +103,7 @@ def main() -> int:
           f"{stats['skills']} registered / {naive_on_disk} on disk")
     check("no node from the marketplace catalogue",
           not any("/marketplaces/" in (n.get("path") or "") for n in graph["nodes"]))
-    enabled_map = atlas_paths.merged_enabled_plugins(cwd)
+    enabled_map = atlas_paths.merged_enabled_plugins()
     disabled_plugins = sorted(k for k, v in enabled_map.items() if not v)
     for key in disabled_plugins:
         name = key.split("@", 1)[0]

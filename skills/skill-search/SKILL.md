@@ -22,9 +22,11 @@ most two shards — never read the whole catalog.
 
 ## Locate the catalog
 
-`~/.claude/skill-atlas/catalog/`. If `catalog/_index.md` does not exist, say
-search is unavailable, suggest running `/skill-atlas`, and proceed without a
-skill.
+`./.claude/skill-atlas/catalog/` — relative to the current working
+directory; the catalog is fully project-local. If `catalog/_index.md` does
+not exist here, this directory has no atlas yet: say search is unavailable,
+suggest running `/skill-atlas` (which initializes it), and proceed without
+a skill. Never fall back to another directory's catalog.
 
 ## Stage 1 — pick a category
 

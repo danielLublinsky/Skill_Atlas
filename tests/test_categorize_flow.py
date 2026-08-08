@@ -26,7 +26,8 @@ def _cli(*args, stdin_text=None, cwd=None):
 
 
 def _build():
-    return build_graph.main(["--global-only", "--quiet", "--cwd", os.getcwd()])
+    neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
+    return build_graph.main(["--quiet", "--cwd", neutral])
 
 
 def _graph():
@@ -83,51 +84,52 @@ class TestCategorizationFlow(unittest.TestCase):
                                             sort_keys=True),
                                  json.dumps(entry, sort_keys=True))
 
-    def test_project_skills_categorized(self):
+    def test_scopes_are_independent_worlds(self):
+        # Fully project-local: each directory carries its own complete
+        # categories.json (taxonomy included); bootstrapping one scope
+        # leaves every other scope untouched and un-bootstrapped.
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
+            _build()
             proc = _cli("bootstrap", stdin_text=json.dumps(
                 {"taxonomy": helpers.TAXONOMY, "assignments": FULL_ASSIGNMENTS}))
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
 
-            # The project view renames the colliding graphify pair and adds
-            # the project skill — both variants surface as uncategorized
-            # there, and the shadowed bare-name assignment is NOT an orphan.
+            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             status = json.loads(
                 _cli("status", cwd=str(sandbox.project_dir)).stdout)
-            self.assertEqual(status["view"], "project")
-            self.assertEqual([u["id"] for u in status["uncategorized"]],
-                             ["graphify@project", "graphify@user"])
-            self.assertEqual(status["orphan_assignments"], [])
+            self.assertEqual(status["view"], "local")
+            self.assertEqual(status["project"], "project")
+            self.assertFalse(status["bootstrapped"])   # different world
+            self.assertEqual(status["counts"]["uncategorized"], 8)
 
-            snapshot_global = _categories()
-            proc = _cli("assign", cwd=str(sandbox.project_dir),
-                        stdin_text=json.dumps({"assignments": {
-                            "graphify@project": ["docs"],
-                            "graphify@user": ["docs"]}}))
+            # Bootstrap the project scope with its own full coverage —
+            # including both collision-renamed graphify variants.
+            assignments = dict(helpers.ASSIGNED)
+            assignments.update({"beta:y": ["eng"], "linked-skill": ["eng"],
+                                "graphify@user": ["docs"],
+                                "graphify@project": ["docs"]})
+            proc = _cli("bootstrap", cwd=str(sandbox.project_dir),
+                        stdin_text=json.dumps({"taxonomy": helpers.TAXONOMY,
+                                               "assignments": assignments}))
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            # View-local entries land in the PROJECT's own curated file;
-            # the global file is untouched.
-            project_file = json.loads(atlas_paths.project_categories_path(
-                sandbox.project_dir).read_text())
-            self.assertEqual(sorted(project_file["assignments"]),
-                             ["graphify@project", "graphify@user"])
-            self.assertNotIn("taxonomy", project_file)
-            self.assertEqual(_categories(), snapshot_global)
+
+            project_file = json.loads(
+                (helpers.atlas_dir(sandbox.project_dir) / "categories.json")
+                .read_text())
+            self.assertEqual(len(project_file["assignments"]), 8)
+            self.assertTrue(project_file["taxonomy_approved_at"])
+            neutral_file = json.loads(
+                (helpers.atlas_dir(sandbox.tmp) / "categories.json").read_text())
+            self.assertEqual(len(neutral_file["assignments"]), 7)
 
             build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             project_graph = json.loads(
-                atlas_paths.project_graph_path(sandbox.project_dir).read_text())
+                (helpers.atlas_dir(sandbox.project_dir) / "graph.json").read_text())
             self.assertEqual(project_graph["stats"]["uncategorized"], 0)
             self.assertEqual(project_graph["stats"]["orphan_assignments"], [])
             node = next(n for n in project_graph["nodes"]
                         if n["id"] == "graphify@project")
             self.assertEqual(node["categories"], ["docs"])
-            # View-local entries are not orphans in the global view either.
-            global_graph = _graph()
-            self.assertEqual(global_graph["stats"]["orphan_assignments"], [])
-            self.assertEqual(global_graph["stats"]["uncategorized"], 0)
 
     def test_description_edit_goes_stale_then_confirmed(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:

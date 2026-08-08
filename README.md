@@ -54,16 +54,16 @@ it and re-confirm stale ones. All writes go through the validating
 `categorize.py` CLI — `categories.json` is curated state, never
 free-handed and never regenerated.
 
-Run from inside a project (any directory with its own `.claude/`), both
-scripts additionally produce a **project view** written into the project at
-`.claude/skill-atlas/{graph.json, atlas.html}`: user skills + that project's
-skills + installed plugins, with the *project's own* `enabledPlugins`
-overrides applied — so a plugin disabled globally but enabled for the
-project shows correctly in each view. The global artifacts stay
-machine-level (they no longer include any project's skills). Gitignore the
+Everything is **fully project-local**: all artifacts and curated state
+live in `./.claude/skill-atlas/` of the directory you run in, created on
+first build (any directory becomes an atlas scope by running the build
+there). The view covers the machine's installed plugins + user skills +
+that directory's own `.claude/skills/`, with the directory's own
+`enabledPlugins` overrides applied. Different directories are fully
+independent worlds — separate graphs, catalogs, taxonomies. Gitignore the
 derived files in `.claude/skill-atlas/` (`graph.json`, `atlas.html`,
-`graph.dirty`, `debug.log`) but **commit `categories.json`** — it is the
-project's curated categorization and shareable with the team.
+`catalog/`, `graph.dirty`, `debug.log`) but **commit `categories.json`** —
+it is the project's curated categorization and shareable with the team.
 
 `build_graph.py` exit codes make it usable as a CI gate:
 
@@ -86,13 +86,15 @@ named `skill-atlas`.)
 
 Two hooks keep the graph fresh; neither logs anything:
 
-- **SessionStart** — stat-only fingerprint over every SKILL.md *and* every
-  manifest (installed_plugins.json, settings.json / settings.local.json,
-  each plugin.json, plus categories.json and config.json); rebuilds graph
-  and catalog shards on mismatch. Aborts at 2 s — a slow hook is worse
-  than a stale graph. When the searchable tier is nonempty it also emits
-  the ~50-token index line into session context via the documented
-  SessionStart JSON contract — its only stdout, ever.
+- **SessionStart** — operates only in directories that already carry a
+  `.claude/skill-atlas/` (an explicit build is the opt-in; the hook never
+  initializes anything). Stat-only fingerprint over every SKILL.md *and*
+  every manifest (installed_plugins.json, settings files, each
+  plugin.json, plus this scope's categories.json and config.json);
+  rebuilds graph and catalog shards on mismatch. Aborts at 2 s — a slow
+  hook is worse than a stale graph. When the searchable tier is nonempty
+  it also emits the ~50-token index line into session context via the
+  documented SessionStart JSON contract — its only stdout, ever.
 - **PostToolUse (Write|Edit)** — flags the graph dirty when a skill file or
   manifest is edited; the flag is consumed at the next session start.
 
@@ -121,11 +123,10 @@ that would have is dropped (DESIGN.md §6). Two notes that still apply:
 
 ## Configuration
 
-Artifacts always live in the `.claude/skill-atlas/` of their scope — no
-override: `~/.claude/skill-atlas/` for the machine view (graph, atlas,
-`catalog/`, the global curated `categories.json`, `config.json`), and
-`<project>/.claude/skill-atlas/` for project views (graph, atlas, and that
-project's own curated `categories.json`).
+Artifacts always live in `./.claude/skill-atlas/` of the directory
+skill-atlas runs in — graph, atlas, `catalog/`, curated `categories.json`
+and `config.json` alike. There is no global artifact root and no location
+override.
 
 | Env var | Default | Meaning |
 | --- | --- | --- |
@@ -140,12 +141,10 @@ frozen taxonomy and every assignment (back it up; a hand-edit that breaks
 its schema fails the build loud with the violations named, and
 `categorize.py import <path>` installs a corrected file after
 validation) — and `config.json` is a five-line opt-in list you can
-rewrite. Curated state is split per scope: the global file carries the
-taxonomy + user/plugin assignments; each project's
-`.claude/skill-atlas/categories.json` carries only that project's
-assignments (never a taxonomy) and is meant to be **committed with the
-repo** — gitignore the derived files next to it, not the curated one.
-See DESIGN-PHASE2.md §3.4 and §0 amendment 7.
+rewrite. Each scope's `categories.json` is complete — its own taxonomy
+plus every assignment — and is meant to be **committed with the repo**;
+gitignore the derived files next to it, not the curated one. See
+DESIGN-PHASE2.md §3.4 and §0 amendment 8.
 
 ## Development
 

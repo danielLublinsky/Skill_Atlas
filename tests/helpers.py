@@ -26,13 +26,21 @@ PLACEHOLDER = "__CLAUDE_DIR__"
 
 
 class EnvSandbox:
+    """Redirects claude_dir (inputs) to a throwaway copy of the fixture
+    tree, and points the in-process atlas scope at the sandbox's neutral
+    tmp dir — a plain directory with no .claude of its own, standing in for
+    "some directory the user runs skill-atlas in". Tests exercising the
+    project-skills scope switch to `sandbox.project_dir` explicitly."""
+
     def __init__(self, copy_fixtures: bool = False):
         self.copy_fixtures = copy_fixtures
         self.tmp = None
         self.claude = None
         self._saved = {}
+        self._saved_scope = None
 
     def __enter__(self):
+        import atlas_paths
         self._saved = {name: os.environ.get(name) for name in ENV_VARS}
         self.tmp = Path(tempfile.mkdtemp(prefix="skill-atlas-test-"))
         self.claude = self.tmp / "claude"
@@ -44,9 +52,13 @@ class EnvSandbox:
             self.claude.mkdir()
         os.environ["SKILL_ATLAS_CLAUDE_DIR"] = str(self.claude)
         os.environ.pop("SKILL_ATLAS_AUTOBUILD", None)
+        self._saved_scope = atlas_paths._scope
+        atlas_paths.set_scope(self.tmp)
         return self
 
     def __exit__(self, *exc_info):
+        import atlas_paths
+        atlas_paths._scope = self._saved_scope
         for name, value in self._saved.items():
             if value is None:
                 os.environ.pop(name, None)
@@ -101,15 +113,17 @@ ASSIGNED_ALL.update({"graphify": ["docs"], "beta:y": ["eng"],
                      "linked-skill": ["eng"]})
 
 
-def approved_categories(cwd=None, assigned=None, taxonomy=None) -> dict:
+def approved_categories(sandbox, cwd=None, assigned=None, taxonomy=None) -> dict:
     """A valid, bootstrapped categories.json for the fixture tree, with
-    desc_hashes computed from the live sandbox descriptions (call inside an
-    EnvSandbox). cwd chooses the view the ids come from."""
+    desc_hashes computed from the live sandbox descriptions. cwd chooses
+    the scope the ids come from (default: the neutral tmp dir)."""
     import atlas_categories
     import atlas_discovery
+    import atlas_paths
 
+    atlas_paths.set_scope(cwd or sandbox.tmp)
     descriptions = {s["id"]: s.get("description")
-                    for s in atlas_discovery.discover(cwd=cwd)["skills"]}
+                    for s in atlas_discovery.discover()["skills"]}
     assignments = {}
     for skill_id, labels in (assigned if assigned is not None else ASSIGNED).items():
         assignments[skill_id] = {
@@ -125,25 +139,22 @@ def approved_categories(cwd=None, assigned=None, taxonomy=None) -> dict:
     }
 
 
-def write_categories(sandbox, obj) -> None:
+def atlas_dir(base) -> Path:
+    return Path(base) / ".claude" / "skill-atlas"
+
+
+def write_categories(sandbox, obj, cwd=None) -> None:
     """Direct (non-validating) write — deliberately bypasses the validating
-    writer so tests can plant hand-edited and broken states."""
+    writer so tests can plant hand-edited and broken states. cwd chooses
+    the scope (default: the neutral tmp dir)."""
     import atlas_io
-    import atlas_paths
-    atlas_io.atomic_write_json(atlas_paths.categories_path(), obj)
-
-
-def write_config(sandbox, obj) -> None:
-    import atlas_io
-    import atlas_paths
-    atlas_io.atomic_write_json(atlas_paths.config_path(), obj)
-
-
-def write_project_categories(sandbox, obj) -> None:
-    import atlas_io
-    import atlas_paths
     atlas_io.atomic_write_json(
-        atlas_paths.project_categories_path(sandbox.project_dir), obj)
+        atlas_dir(cwd or sandbox.tmp) / "categories.json", obj)
+
+
+def write_config(sandbox, obj, cwd=None) -> None:
+    import atlas_io
+    atlas_io.atomic_write_json(atlas_dir(cwd or sandbox.tmp) / "config.json", obj)
 
 
 def searchable_config(*plugins) -> dict:

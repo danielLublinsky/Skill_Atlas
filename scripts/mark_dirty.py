@@ -24,10 +24,13 @@ PATTERNS = (
 )
 
 
-def _dirty_marker_path() -> str:
-    claude = os.environ.get("SKILL_ATLAS_CLAUDE_DIR",
-                            os.path.expanduser("~/.claude"))
-    return os.path.join(os.path.expanduser(claude), "skill-atlas", "graph.dirty")
+def _dirty_marker_path():
+    """Scope-local marker — and only for an already-initialized scope: the
+    hook never creates `.claude/skill-atlas/` anywhere by itself."""
+    home = os.path.join(os.getcwd(), ".claude", "skill-atlas")
+    if not os.path.isdir(home):
+        return None
+    return os.path.join(home, "graph.dirty")
 
 
 def main() -> int:
@@ -39,7 +42,8 @@ def main() -> int:
         normalized = file_path.replace(os.sep, "/")
         if any(fnmatch.fnmatch(normalized, pattern) for pattern in PATTERNS):
             marker = _dirty_marker_path()
-            os.makedirs(os.path.dirname(marker), exist_ok=True)
+            if marker is None:
+                return 0
             with open(marker, "a", encoding="utf-8"):
                 os.utime(marker, None)
     except BaseException:

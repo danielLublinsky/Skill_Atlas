@@ -1,13 +1,34 @@
 """Single source of truth for paths, env vars and settings merging.
 
-Every other module resolves locations through here. SKILL_ATLAS_CLAUDE_DIR is
-the testability seam: pointing it at a fixture tree redirects the entire
-system without monkeypatching.
+Fully project-local (DESIGN-PHASE2 §0 amendment 8): every artifact and
+curated file lives in `<scope>/.claude/skill-atlas/`, where the SCOPE is
+the directory skill-atlas runs in. There is no global artifact root and no
+artifact-location env var. The first explicit run in a directory creates
+its `.claude/skill-atlas/` (auto-init); the hooks stay inert anywhere that
+was never initialized.
+
+The scope is process-wide state set once by each entry point (defaulting
+to the process cwd). SKILL_ATLAS_CLAUDE_DIR redirects only Claude Code's
+own config root — the inputs — and remains the testability seam.
 """
 
 import json
 import os
 from pathlib import Path
+
+_scope = None
+
+
+def set_scope(cwd=None) -> Path:
+    """Fix the directory this process operates on. Entry points call this
+    exactly once, before any path is resolved."""
+    global _scope
+    _scope = Path(cwd).expanduser() if cwd else Path.cwd()
+    return _scope
+
+
+def scope() -> Path:
+    return _scope if _scope is not None else Path.cwd()
 
 
 def _env_path(name: str, default: Path) -> Path:
@@ -16,25 +37,33 @@ def _env_path(name: str, default: Path) -> Path:
 
 
 def claude_dir() -> Path:
+    """Claude Code's own config root — inputs only, never written."""
     return _env_path("SKILL_ATLAS_CLAUDE_DIR", Path.home() / ".claude")
-
-
-def atlas_home() -> Path:
-    """Machine-level artifact root — always `.claude/skill-atlas` of the
-    user scope (no override: artifacts live with their scope, project
-    artifacts under the project's own `.claude/skill-atlas`). Mostly derived
-    files (graph.json, atlas.html, catalog/), plus two exceptions with
-    different loss semantics: categories.json is CURATED (restore from
-    backup, never regenerate) and config.json is user config."""
-    return claude_dir() / "skill-atlas"
 
 
 def autobuild_enabled() -> bool:
     return os.environ.get("SKILL_ATLAS_AUTOBUILD", "1") != "0"
 
 
+def atlas_home() -> Path:
+    """This scope's artifact root. Derived files (graph.json, atlas.html,
+    catalog/) plus the curated categories.json and the config.json opt-in —
+    all of it travels with the directory it describes."""
+    return scope() / ".claude" / "skill-atlas"
+
+
+def initialized() -> bool:
+    """True once an explicit run has created this scope's atlas dir — the
+    opt-in signal the hooks honour."""
+    return atlas_home().is_dir()
+
+
 def graph_path() -> Path:
     return atlas_home() / "graph.json"
+
+
+def atlas_path() -> Path:
+    return atlas_home() / "atlas.html"
 
 
 def dirty_path() -> Path:
@@ -46,12 +75,13 @@ def debug_log_path() -> Path:
 
 
 def categories_path() -> Path:
-    """Curated category state (DESIGN-PHASE2 §3.1) — never regenerated."""
+    """Curated category state for this scope (taxonomy + assignments) —
+    never regenerated; commit it with the project."""
     return atlas_home() / "categories.json"
 
 
 def config_path() -> Path:
-    """User config: the searchable-tier opt-in (DESIGN-PHASE2 §3.2)."""
+    """This scope's searchable-tier opt-in (DESIGN-PHASE2 §3.2)."""
     return atlas_home() / "config.json"
 
 
@@ -70,61 +100,43 @@ def user_skills_root() -> Path:
     return claude_dir() / "skills"
 
 
-def is_project(cwd) -> bool:
-    """A directory is a project iff it carries its own .claude/ — and that
-    .claude is not the user-level one (running from ~ must not double-count
-    user skills as project skills)."""
-    if not cwd:
-        return False
-    project_claude = Path(cwd) / ".claude"
+def has_local_skills_root() -> bool:
+    """Whether this scope contributes its own project skills. Running from
+    the home directory, `<scope>/.claude` IS the user config dir — its
+    skills are already the user scope and must not double-count."""
+    local = scope() / ".claude"
     try:
-        if not project_claude.is_dir():
+        if not local.is_dir():
             return False
-        return project_claude.resolve() != claude_dir().resolve()
+        return local.resolve() != claude_dir().resolve()
     except OSError:
         return False
 
 
-def project_home(cwd) -> Path:
-    """Per-project artifact root, inside the project folder (user decision:
-    project atlases live with the project, not under ~/.claude)."""
-    return Path(cwd) / ".claude" / "skill-atlas"
-
-
-def project_graph_path(cwd) -> Path:
-    return project_home(cwd) / "graph.json"
-
-
-def project_categories_path(cwd) -> Path:
-    """Curated per-project category assignments — travels with the project
-    (committable), holding only that project's skills and collision-renamed
-    ids; the taxonomy stays global."""
-    return project_home(cwd) / "categories.json"
-
-
-def project_atlas_path(cwd) -> Path:
-    return project_home(cwd) / "atlas.html"
+def local_skills_root() -> Path:
+    return scope() / ".claude" / "skills"
 
 
 def installed_plugins_path() -> Path:
     return claude_dir() / "plugins" / "installed_plugins.json"
 
 
-def settings_paths(cwd=None) -> list:
-    """All settings files that may carry enabledPlugins, lowest precedence first."""
+def settings_paths() -> list:
+    """All settings files that may carry enabledPlugins, lowest precedence
+    first: user level, then this scope's own .claude (when distinct)."""
     paths = [claude_dir() / "settings.json", claude_dir() / "settings.local.json"]
-    if cwd:
-        project = Path(cwd) / ".claude"
-        paths += [project / "settings.json", project / "settings.local.json"]
+    if has_local_skills_root():
+        local = scope() / ".claude"
+        paths += [local / "settings.json", local / "settings.local.json"]
     return paths
 
 
-def merged_enabled_plugins(cwd=None) -> dict:
-    """Merge enabledPlugins across settings files (project local > project >
+def merged_enabled_plugins() -> dict:
+    """Merge enabledPlugins across settings files (scope local > scope >
     user local > user). Keys are composite '<name>@<marketplace>' strings —
     that is how both settings.json and installed_plugins.json key plugins."""
     merged = {}
-    for path in settings_paths(cwd):
+    for path in settings_paths():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -170,17 +182,14 @@ def installed_plugins() -> list:
     return out
 
 
-def manifest_paths(cwd=None) -> list:
+def manifest_paths() -> list:
     """Every non-SKILL.md file the graph depends on. These join the §5.1
-    fingerprint: toggling enabledPlugins or installing a plugin must not
-    leave the graph silently stale. Phase 2 adds the curated/config pair —
-    editing categories.json or config.json changes graph.json while touching
-    no SKILL.md (DESIGN-PHASE2 §3.3); absence hashes as "|missing", so their
-    first appearance flips the fingerprint too."""
+    fingerprint: toggling enabledPlugins, installing a plugin, or editing
+    this scope's curated categories.json / config.json must not leave the
+    graph silently stale; absence hashes as "|missing", so a file's first
+    appearance flips the fingerprint too."""
     paths = [installed_plugins_path(), categories_path(), config_path()] \
-        + settings_paths(cwd)
-    if cwd:
-        paths.append(project_categories_path(cwd))
+        + settings_paths()
     try:
         for record in installed_plugins():
             paths.append(record["install_path"] / ".claude-plugin" / "plugin.json")

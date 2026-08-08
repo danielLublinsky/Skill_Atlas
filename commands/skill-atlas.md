@@ -51,12 +51,12 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - **A run must end with zero uncategorized skills.** After step 3, if the
      rebuilt graph still reports uncategorized > 0, something was missed — go
      back and assign it.
-   - **Project skills are categorized too.** categorize.py follows the view
-     automatically: run from inside a project it operates on that project's
-     graph, so project-scope skills and collision-renamed ids
-     (`name@user` / `name@project`) appear in `uncategorized` and are assigned
-     like any other skill. When the project view reports uncategorized skills,
-     categorize them in the same run.
+   - **Everything is scope-local.** All artifacts and curated state live in
+     `./.claude/skill-atlas/` of the current directory (auto-created on first
+     build); different directories are independent worlds with independent
+     taxonomies. Every registered skill in this scope's graph gets
+     categorized — plugins, user skills, and this directory's own project
+     skills alike.
 
 3. Rerun `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_graph.py"`, then
    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"`.
@@ -65,9 +65,8 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    uncategorized / stale); every dangling or broken-reference finding by name
    (these are real defects); what categorization did this run — newly assigned
    (id → categories), stale confirmed vs moved, any category you added; and the
-   atlas path(s). Both scripts build the global view and — when the current
-   directory has its own `.claude/` — a project view at
-   `.claude/skill-atlas/atlas.html`. The first time project artifacts appear,
-   suggest gitignoring the DERIVED files only (`graph.json`, `atlas.html`,
-   `graph.dirty`, `debug.log`) — `.claude/skill-atlas/categories.json` is the
-   project's curated categorization and belongs in version control.
+   atlas path (`./.claude/skill-atlas/atlas.html`). The first time the
+   atlas dir appears in a repo, suggest gitignoring the DERIVED files only
+   (`graph.json`, `atlas.html`, `catalog/`, `graph.dirty`, `debug.log`) —
+   `.claude/skill-atlas/categories.json` is this project's curated
+   categorization and belongs in version control.

@@ -1,0 +1,395 @@
+{
+  "assignments": {
+    "claude-code-setup:claude-automation-recommender": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:db90afcde3c999d6770d79032c8558d89b45cddd23275621967955d5b3982eb3"
+    },
+    "claude-md-management:claude-md-improver": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling",
+        "writing"
+      ],
+      "desc_hash": "sha256:983b0daec178f0ee6150697eec3126dfcd762355dcb84e28228c9fd933f096d6"
+    },
+    "frontend-design:frontend-design": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "ui"
+      ],
+      "desc_hash": "sha256:f6aca329665c9761de344b5e6dad22a0318b84a356c6f059d641dcb973bb62ec"
+    },
+    "graphify": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "architecture"
+      ],
+      "desc_hash": "sha256:7d9300903d86002b3716416aee18fbe92beeee3620103dae11973b16dd48a710"
+    },
+    "mattpocock-skills:ask-matt": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:785fdddf1164ede901028c50cfedb5da090ddeb3b6d70a6883f213b0e0d89f00"
+    },
+    "mattpocock-skills:code-review": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "review"
+      ],
+      "desc_hash": "sha256:b6d001c6be7115c6c9dc57aab4ee65796d2219c20385e0e0b0c2ce6cf74afb3e"
+    },
+    "mattpocock-skills:codebase-design": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "architecture"
+      ],
+      "desc_hash": "sha256:63f3b1bed0c9fa4a69c9186b18f1bfecb01d1c636e8a0ff21de8ec096f5a82ea"
+    },
+    "mattpocock-skills:diagnosing-bugs": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "debugging"
+      ],
+      "desc_hash": "sha256:b78755b7df92745190a4ede0855094538318dbc93e66387eb9410c7fc6c5e10d"
+    },
+    "mattpocock-skills:domain-modeling": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "architecture"
+      ],
+      "desc_hash": "sha256:92f0a3a377ed94554eb54df81c116cea52f2d9e193b233fcacf66398837c197b"
+    },
+    "mattpocock-skills:grill-me": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:11070b4d380cead93dbe0b58737899f96eaf05b886fb4805b95c764c0d40baef"
+    },
+    "mattpocock-skills:grill-with-docs": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning",
+        "writing"
+      ],
+      "desc_hash": "sha256:ed166c9bbf3797f2f99c34c322201936c7cc7183b7c98169550a5a96d47964fa"
+    },
+    "mattpocock-skills:grilling": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:aefd3e0be77f0961bdfa49de8cf3a5bbba7e55bfbf32c5386aa1a39a42352bcf"
+    },
+    "mattpocock-skills:handoff": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing",
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:ca459f68b5f4d982a5cab8afb4f3e000c928ca70a4dc7079277821560da8beea"
+    },
+    "mattpocock-skills:implement": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation"
+      ],
+      "desc_hash": "sha256:a5e638a4bd5609b97a74310d8cba0043a0427768b6032e0bbd0bdd13654646bf"
+    },
+    "mattpocock-skills:improve-codebase-architecture": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "architecture"
+      ],
+      "desc_hash": "sha256:a0867b177e56de05218815785ed8007024d5c584d6756fde8ff1c72815b04a32"
+    },
+    "mattpocock-skills:prototype": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation",
+        "planning"
+      ],
+      "desc_hash": "sha256:cc3996263316c1f1c89db6ecdcd8ec1e1fa08253b2316939e838f995017c2b72"
+    },
+    "mattpocock-skills:research": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing"
+      ],
+      "desc_hash": "sha256:8062c29038abc1afb299469d92dd1167481fa84a867f32484ce4abc815d070f3"
+    },
+    "mattpocock-skills:resolving-merge-conflicts": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "git"
+      ],
+      "desc_hash": "sha256:55e65013c14e76545700742e72410952b0f7333804b017b5a79051f2721f0932"
+    },
+    "mattpocock-skills:setup-matt-pocock-skills": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:ce566c1d335666abd483f40b0349bba2773655ab23835c1ab291879a6b4a894e"
+    },
+    "mattpocock-skills:tdd": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation"
+      ],
+      "desc_hash": "sha256:58ff584d9462495638cc6513449398700d3e3599946d39cb0643cd50b5e6ddb6"
+    },
+    "mattpocock-skills:teach": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing"
+      ],
+      "desc_hash": "sha256:c5209685860a014628764bef192a382c45c860737176ec2215fedbcc7024bce3"
+    },
+    "mattpocock-skills:to-questionnaire": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning",
+        "writing"
+      ],
+      "desc_hash": "sha256:584dc6c87e0b17a74d0e3fe805e5eed3a26010f6a11e6de868f1b1a882501f79"
+    },
+    "mattpocock-skills:to-spec": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:a9d8ee699c04b4a5c51f7cef4bad158eb9f5c709b965883f62804c6ffd0988bb"
+    },
+    "mattpocock-skills:to-tickets": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:363f17bdb12f323c8dcd37b4d95749bb99e252e21789b201a630de797e9bbab2"
+    },
+    "mattpocock-skills:triage": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:f68e10107760bc67fe1685a69f111ab722ed10fdf37a9a976fa4aec15d858873"
+    },
+    "mattpocock-skills:wait-what": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing"
+      ],
+      "desc_hash": "sha256:56a621dfd6d1f6c39659189f38f1eb580b347775fcc512de1ab4fc7e40c3afd1"
+    },
+    "mattpocock-skills:wayfinder": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:09aa5b642c5cdab15c768ee5b1fb083a11cab1e7d4a430c393437fecb1f45e11"
+    },
+    "mattpocock-skills:wizard": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation"
+      ],
+      "desc_hash": "sha256:f4db30f214c1f632131e7df0b54b7c21e345828c1d25ff96a3e926ef77e6943e"
+    },
+    "mattpocock-skills:writing-for-agents": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing",
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:d7c3ccc8760562728f92ff39193531273395780316664ad00d1cd0479d33ce15"
+    },
+    "omarchy": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "system-config"
+      ],
+      "desc_hash": "sha256:602e9e65cd97891ed095d178d17f2cf87468381be71cef5e1fb04945812c354a"
+    },
+    "prompt-master": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "writing"
+      ],
+      "desc_hash": "sha256:867de2484cd5a21632829aacc053282b709a9448d654482dfa6a19b79c40ebb6"
+    },
+    "skill-atlas:skill-atlas": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:284d241b9b8a4c1e5258ef3afa089d961ee58e2e0d4d7b5dbcf78144e34446fc"
+    },
+    "skill-atlas:skill-search": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:5827b14a93122ec2913087f34e1bb2a19a4afa31f1729b40fd9daa38630d7848"
+    },
+    "skill-creator:skill-creator": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:dc3522ad3e3e46453a411f9d4f55faa15828e312933e722c1be9e8e3a7712cab"
+    },
+    "superpowers:brainstorming": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:e9d027d6a5c7244d1e80c86963d647204a8bbfd000345432ebe5e0e1f8802b90"
+    },
+    "superpowers:dispatching-parallel-agents": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation",
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:5649c0d308ec206f10b14e81bfde914497ed7f3570473aa1dc43636d05233f2e"
+    },
+    "superpowers:executing-plans": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation",
+        "planning"
+      ],
+      "desc_hash": "sha256:f5ac56aa78b912c2eaa0bdd01e07afe3e372757c2a4586d6392c633b0974d9bd"
+    },
+    "superpowers:finishing-a-development-branch": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "git",
+        "review"
+      ],
+      "desc_hash": "sha256:abec2b086d3c16ee7f4becc696463ef623d3bc66816ea992b4efe4a883066897"
+    },
+    "superpowers:receiving-code-review": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "review"
+      ],
+      "desc_hash": "sha256:aaf1de41eab32e80610f3008f23526897b5dadad3eced02bd722767d6521a10c"
+    },
+    "superpowers:requesting-code-review": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "review"
+      ],
+      "desc_hash": "sha256:739cdd1b776658eb0bcb038dd4c8bb8f4ea82d08895fda7ce5b8012d22f6cbb0"
+    },
+    "superpowers:subagent-driven-development": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation",
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:4a3ca86a4a7b7f1a05632a88f81ce5aa41f3da84ac5045d78c7c3aaf9d3680f8"
+    },
+    "superpowers:systematic-debugging": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "debugging"
+      ],
+      "desc_hash": "sha256:45abe257b772fb52556a307565a2b700246e64aea1b692359058677f198058a0"
+    },
+    "superpowers:test-driven-development": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "implementation"
+      ],
+      "desc_hash": "sha256:23b7e98c1a3494e1bbbd2440ad8892bcc5da40648539d8a008dbea493f0d1ed3"
+    },
+    "superpowers:using-git-worktrees": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "git"
+      ],
+      "desc_hash": "sha256:f112aa0c9e54d2f6bd697580f019e098b8c489a7b6b847d50bd5995f40200072"
+    },
+    "superpowers:using-superpowers": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling"
+      ],
+      "desc_hash": "sha256:574152d6113b5dfa8592838423f1dc1f3a5e2c1c2e05f5c0c509c93c91ad177b"
+    },
+    "superpowers:verification-before-completion": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "review"
+      ],
+      "desc_hash": "sha256:fc4ba75fba42be6b5b1cd29dfbf4229c7efee97cc7a9075341c7c5aedacbe4e2"
+    },
+    "superpowers:writing-plans": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "planning"
+      ],
+      "desc_hash": "sha256:90ae238dbfd4ac845d20a7e3c14e1f13284457aa2ae21b3c068e7af181d869ca"
+    },
+    "superpowers:writing-skills": {
+      "assigned_at": "2026-08-08",
+      "categories": [
+        "agent-tooling",
+        "writing"
+      ],
+      "desc_hash": "sha256:5699be5f365acafadb61973fdb4636214c2821d91062fb6eb4ecb6177d1095bd"
+    }
+  },
+  "taxonomy": [
+    {
+      "description": "shaping work before it is built - exploring intent, stress-testing ideas, writing plans and specs, breaking work into tickets",
+      "name": "planning"
+    },
+    {
+      "description": "executing planned work - development loops, running plans, parallelizing agents, building prototypes",
+      "name": "implementation"
+    },
+    {
+      "description": "finding the root cause of bugs, test failures and unexpected behavior before any fix is proposed",
+      "name": "debugging"
+    },
+    {
+      "description": "judging finished work - code review in both directions, verifying claims of done before merge or completion",
+      "name": "review"
+    },
+    {
+      "description": "version-control operations - worktrees, merge conflicts, branch lifecycle and integration",
+      "name": "git"
+    },
+    {
+      "description": "understanding and improving how a codebase or domain is structured, from module design to knowledge graphs",
+      "name": "architecture"
+    },
+    {
+      "description": "visual and frontend design - aesthetic direction, typography, distinctive interfaces",
+      "name": "ui"
+    },
+    {
+      "description": "producing and repairing communication - documents, research writeups, prompts, teaching, handoffs",
+      "name": "writing"
+    },
+    {
+      "description": "operating the Claude Code ecosystem itself - setup, skill authoring and discovery, automation recommendations",
+      "name": "agent-tooling"
+    },
+    {
+      "description": "configuring the local machine - desktop environment, window manager and OS-level settings",
+      "name": "system-config"
+    }
+  ],
+  "taxonomy_approved_at": "2026-08-08",
+  "version": 1
+}

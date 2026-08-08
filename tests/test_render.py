@@ -57,29 +57,28 @@ class TestRender(unittest.TestCase):
             second = render.render(cwd=sandbox.project_dir).read_bytes()
             self.assertEqual(first, second)
 
-    def test_project_render_lands_in_project(self):
+    def test_render_lands_in_scope(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
-            out = render.render(cwd=sandbox.project_dir, project=True)
-            self.assertEqual(out, atlas_paths.project_atlas_path(sandbox.project_dir))
+            out = render.render(cwd=sandbox.project_dir)
+            self.assertEqual(out,
+                             helpers.atlas_dir(sandbox.project_dir) / "atlas.html")
             html = out.read_text(encoding="utf-8")
             self.assertIn("<title>skill-atlas · project</title>", html)
             meta = _data_block(html)["meta"]
-            self.assertEqual(meta["view"], "project")
+            self.assertEqual(meta["view"], "local")
             self.assertEqual(meta["project_name"], "project")
-            # Global render keeps its plain title and location.
-            global_out = render.render(cwd=sandbox.project_dir)
-            self.assertEqual(global_out, atlas_paths.atlas_home() / "atlas.html")
-            self.assertIn("<title>skill-atlas</title>",
-                          global_out.read_text(encoding="utf-8"))
 
     def test_category_view_data_and_markup(self):
         # M6: v3 fields round-trip into the page, and the category-view
         # machinery is present (force-layout behavior is validated live).
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             helpers.write_categories(
-                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
-            helpers.write_config(sandbox, helpers.searchable_config("beta"))
+                sandbox,
+                helpers.approved_categories(sandbox, cwd=sandbox.project_dir),
+                cwd=sandbox.project_dir)
+            helpers.write_config(sandbox, helpers.searchable_config("beta"),
+                                 cwd=sandbox.project_dir)
             html = _render(sandbox)
             nodes = {n["id"]: n for n in _data_block(html)["graph"]["nodes"]}
             self.assertEqual(nodes["alpha:two"]["categories"], ["eng", "docs"])

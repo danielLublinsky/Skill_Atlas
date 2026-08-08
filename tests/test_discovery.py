@@ -2,11 +2,13 @@ import unittest
 
 import helpers
 import atlas_discovery
+import atlas_paths
 
 
 class TestDiscovery(unittest.TestCase):
     def _discover(self, sandbox, **kwargs):
-        return atlas_discovery.discover(cwd=sandbox.project_dir, **kwargs)
+        atlas_paths.set_scope(sandbox.project_dir)
+        return atlas_discovery.discover(**kwargs)
 
     def test_registered_set_exact(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
@@ -89,7 +91,7 @@ class TestDiscovery(unittest.TestCase):
     def test_naive_count_exceeds_registered(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             result = self._discover(sandbox)
-            naive = atlas_discovery.naive_skillmd_count(cwd=sandbox.project_dir)
+            naive = atlas_discovery.naive_skillmd_count()
             # Fixture: 8 registered + qa + stale + phantom = 11 on disk, plus
             # the symlinked skill counted again through its link path = 12.
             self.assertGreater(naive, len(result["skills"]))

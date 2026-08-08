@@ -1,11 +1,12 @@
 """Schema validation and the validating writer for Phase 2's curated state.
 
 categories.json is CURATED (DESIGN-PHASE2 §3.1): never regenerated, never
-repaired. Every write flows through validate-then-atomic-replace here, and
-the build reads it through the strict loaders, which fail loud on a
-hand-edit that breaks the schema — build_graph maps CategoriesError to
-exit 2 with the violations on stderr. config.json (§3.2) gets the same
-treatment.
+repaired. Each scope carries its own complete file — taxonomy plus
+assignments — under its `.claude/skill-atlas/`. Every write flows through
+validate-then-atomic-replace here, and the build reads it through the
+strict loaders, which fail loud on a hand-edit that breaks the schema —
+build_graph maps CategoriesError to exit 2 with the violations on stderr.
+config.json (§3.2) gets the same treatment.
 
 The one thing that is never a schema violation: environmental drift. An
 assignment for a skill that no longer exists in the graph is the build's
@@ -27,10 +28,6 @@ RESERVED_NAMES = ("uncategorized",)
 
 _CATEGORIES_KEYS = {"version", "taxonomy", "taxonomy_approved_at", "assignments"}
 _ASSIGNMENT_KEYS = {"categories", "desc_hash", "assigned_at"}
-# Per-project curated file: assignments only — the taxonomy lives solely in
-# the global file, so project state can travel with the repo without ever
-# forking the frozen taxonomy.
-_PROJECT_KEYS = {"version", "assignments"}
 _CONFIG_KEYS = {"version", "searchable_plugins"}
 
 
@@ -54,10 +51,6 @@ def desc_hash(description) -> str:
 
 def empty_categories() -> dict:
     return {"version": 1, "taxonomy": [], "assignments": {}}
-
-
-def empty_project_categories() -> dict:
-    return {"version": 1, "assignments": {}}
 
 
 def empty_config() -> dict:
@@ -159,22 +152,6 @@ def _validate_assignments(assignments, valid_names, known_ids, errors) -> None:
             errors.append(f"{where}: assigned_at must be a non-empty string")
 
 
-def validate_project_categories(obj, taxonomy_names, known_ids=None) -> list:
-    """Per-project curated file: `{"version": 1, "assignments": {...}}`.
-    Labels are validated against the GLOBAL taxonomy — a project file that
-    tries to carry its own taxonomy is rejected with a pointer."""
-    if not isinstance(obj, dict):
-        return ["top level: expected an object"]
-    errors = []
-    for key in sorted(set(obj) - _PROJECT_KEYS):
-        hint = (" — the taxonomy lives only in the global categories.json"
-                if key in ("taxonomy", "taxonomy_approved_at") else "")
-        errors.append(f"unknown key {key!r}{hint}")
-    if obj.get("version") != 1:
-        errors.append(f"version: expected 1, got {obj.get('version')!r}")
-    _validate_assignments(obj.get("assignments"), set(taxonomy_names),
-                          known_ids, errors)
-    return errors
 
 
 def orphan_ids(assignments, view_ids, duplicate_names=()) -> list:
@@ -236,13 +213,6 @@ def load_categories_strict() -> dict:
                         empty_categories, "categories.json")
 
 
-def load_project_categories_strict(cwd, taxonomy_names) -> dict:
-    return _load_strict(
-        atlas_paths.project_categories_path(cwd),
-        lambda obj: validate_project_categories(obj, taxonomy_names),
-        empty_project_categories, "project categories.json")
-
-
 def load_config_strict() -> dict:
     return _load_strict(atlas_paths.config_path(), validate_config,
                         empty_config, "config.json")
@@ -255,13 +225,6 @@ def write_categories(obj, known_ids=None) -> None:
     if errors:
         raise CategoriesError("categories.json", errors)
     atlas_io.atomic_write_json(atlas_paths.categories_path(), obj)
-
-
-def write_project_categories(cwd, obj, taxonomy_names, known_ids=None) -> None:
-    errors = validate_project_categories(obj, taxonomy_names, known_ids=known_ids)
-    if errors:
-        raise CategoriesError("project categories.json", errors)
-    atlas_io.atomic_write_json(atlas_paths.project_categories_path(cwd), obj)
 
 
 def write_config(obj) -> None:

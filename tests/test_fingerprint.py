@@ -9,8 +9,9 @@ import atlas_paths
 
 
 def _fingerprint(sandbox):
-    paths = atlas_discovery.skill_md_paths(cwd=sandbox.project_dir)
-    return atlas_fingerprint.compute(paths, atlas_paths.manifest_paths(sandbox.project_dir))
+    atlas_paths.set_scope(sandbox.project_dir)
+    paths = atlas_discovery.skill_md_paths()
+    return atlas_fingerprint.compute(paths, atlas_paths.manifest_paths())
 
 
 def _bump_mtime(path):
@@ -57,9 +58,10 @@ class TestFingerprint(unittest.TestCase):
 
     def test_deadline_abort_returns_none(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            paths = atlas_discovery.skill_md_paths(cwd=sandbox.project_dir)
+            atlas_paths.set_scope(sandbox.project_dir)
+            paths = atlas_discovery.skill_md_paths()
             result = atlas_fingerprint.compute(
-                paths, atlas_paths.manifest_paths(sandbox.project_dir),
+                paths, atlas_paths.manifest_paths(),
                 deadline=time.monotonic() - 1)
             self.assertIsNone(result)
 

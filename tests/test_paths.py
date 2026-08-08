@@ -12,9 +12,13 @@ class TestEnvAndDefaults(unittest.TestCase):
     def test_env_overrides_and_defaults(self):
         with helpers.EnvSandbox() as sandbox:
             self.assertEqual(atlas_paths.claude_dir(), sandbox.claude)
-            # No artifact-root override: artifacts always live in the
-            # .claude/skill-atlas of their scope.
-            self.assertEqual(atlas_paths.atlas_home(), sandbox.claude / "skill-atlas")
+            # Artifacts always live in the .claude/skill-atlas of the scope
+            # (the sandbox points the scope at its neutral tmp dir).
+            self.assertEqual(atlas_paths.atlas_home(),
+                             sandbox.tmp / ".claude" / "skill-atlas")
+            atlas_paths.set_scope("/x/proj")
+            self.assertEqual(atlas_paths.atlas_home(),
+                             Path("/x/proj/.claude/skill-atlas"))
             self.assertTrue(atlas_paths.autobuild_enabled())
             os.environ["SKILL_ATLAS_AUTOBUILD"] = "0"
             self.assertFalse(atlas_paths.autobuild_enabled())
@@ -31,9 +35,11 @@ class TestSettingsMerge(unittest.TestCase):
             write(project / ".claude" / "settings.json", {"c@mp": False})
             write(project / ".claude" / "settings.local.json", {"c@mp": True})
 
-            merged = atlas_paths.merged_enabled_plugins(cwd=project)
+            atlas_paths.set_scope(project)
+            merged = atlas_paths.merged_enabled_plugins()
             self.assertEqual(merged, {"a@mp": True, "b@mp": False, "c@mp": True})
-            # Without cwd, project layers don't apply.
+            # A scope without its own .claude: project layers don't apply.
+            atlas_paths.set_scope(sandbox.tmp)
             merged_user = atlas_paths.merged_enabled_plugins()
             self.assertEqual(merged_user, {"a@mp": True, "b@mp": False})
 
@@ -78,54 +84,50 @@ class TestInstalledPlugins(unittest.TestCase):
             self._write_manifest(sandbox, {
                 "alpha@fake-mp": [{"scope": "user", "installPath": "/x/alpha/1.0.0"}],
             })
-            paths = atlas_paths.manifest_paths(cwd="/some/project")
+            project = sandbox.tmp / "someproject"
+            (project / ".claude").mkdir(parents=True)
+            atlas_paths.set_scope(project)
+            paths = atlas_paths.manifest_paths()
             self.assertIn(atlas_paths.installed_plugins_path(), paths)
             self.assertIn(sandbox.claude / "settings.json", paths)
             self.assertIn(sandbox.claude / "settings.local.json", paths)
-            self.assertIn(Path("/some/project/.claude/settings.json"), paths)
+            self.assertIn(project / ".claude" / "settings.json", paths)
             self.assertIn(Path("/x/alpha/1.0.0/.claude-plugin/plugin.json"), paths)
-            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3),
-            # including the project's own curated file for project views.
-            self.assertIn(atlas_paths.categories_path(), paths)
-            self.assertIn(atlas_paths.config_path(), paths)
-            self.assertIn(
-                Path("/some/project/.claude/skill-atlas/categories.json"), paths)
+            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3):
+            # this scope's own curated categories.json + config.json.
+            self.assertIn(project / ".claude" / "skill-atlas" / "categories.json",
+                          paths)
+            self.assertIn(project / ".claude" / "skill-atlas" / "config.json",
+                          paths)
 
 
-class TestProjectPaths(unittest.TestCase):
-    def test_is_project(self):
+class TestScopePaths(unittest.TestCase):
+    def test_has_local_skills_root(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            self.assertTrue(atlas_paths.is_project(sandbox.project_dir))
-            self.assertFalse(atlas_paths.is_project(sandbox.tmp))  # no .claude/
-            self.assertFalse(atlas_paths.is_project(None))
-            # A cwd whose .claude IS the user-level dir (i.e. running from ~)
-            # must not count as a project — it would double-count user skills.
+            atlas_paths.set_scope(sandbox.project_dir)
+            self.assertTrue(atlas_paths.has_local_skills_root())
+            atlas_paths.set_scope(sandbox.tmp)   # no .claude/ of its own
+            self.assertFalse(atlas_paths.has_local_skills_root())
+            # A scope whose .claude IS the user-level dir (i.e. running from
+            # ~) must not double-count user skills as project skills.
             fake_home = sandbox.tmp / "fake-home"
             fake_home.mkdir()
             (fake_home / ".claude").symlink_to(sandbox.claude, target_is_directory=True)
-            self.assertFalse(atlas_paths.is_project(fake_home))
+            atlas_paths.set_scope(fake_home)
+            self.assertFalse(atlas_paths.has_local_skills_root())
 
-    def test_project_artifact_paths(self):
-        home = atlas_paths.project_home("/x/proj")
-        self.assertEqual(home, Path("/x/proj/.claude/skill-atlas"))
-        self.assertEqual(atlas_paths.project_graph_path("/x/proj"),
-                         home / "graph.json")
-        self.assertEqual(atlas_paths.project_atlas_path("/x/proj"),
-                         home / "atlas.html")
-
-
-class TestPhase2Paths(unittest.TestCase):
-    def test_artifact_paths_under_home(self):
+    def test_artifact_paths_under_scope(self):
         with helpers.EnvSandbox():
-            home = atlas_paths.atlas_home()
+            atlas_paths.set_scope("/x/proj")
+            home = Path("/x/proj/.claude/skill-atlas")
+            self.assertEqual(atlas_paths.atlas_home(), home)
+            self.assertEqual(atlas_paths.graph_path(), home / "graph.json")
+            self.assertEqual(atlas_paths.atlas_path(), home / "atlas.html")
             self.assertEqual(atlas_paths.categories_path(), home / "categories.json")
             self.assertEqual(atlas_paths.config_path(), home / "config.json")
             self.assertEqual(atlas_paths.catalog_dir(), home / "catalog")
             self.assertEqual(atlas_paths.catalog_index_path(),
                              home / "catalog" / "_index.md")
-            self.assertEqual(
-                atlas_paths.project_categories_path("/x/proj"),
-                Path("/x/proj/.claude/skill-atlas/categories.json"))
 
 
 class TestAtomicIO(unittest.TestCase):

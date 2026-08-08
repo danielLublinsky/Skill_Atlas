@@ -24,12 +24,15 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"        # → atlas.html
 ```
 
 Full flow: build → `categorize.py status` → categorize (below) → rebuild →
-render → report. Both build and render produce the global view
-(`~/.claude/skill-atlas/atlas.html`) and, when the current directory carries
-its own `.claude/`, a **project view** at `.claude/skill-atlas/atlas.html`
-(suggest gitignoring the derived files there — but NOT
-`categories.json`, the project's curated categorization, which belongs in
-version control).
+render → report. Everything is **fully project-local**: all artifacts and
+curated state live in `./.claude/skill-atlas/` of the directory you run in
+(auto-created on first build — any directory becomes an atlas scope by
+running this), covering the machine's plugins + user skills + this
+directory's own `.claude/skills/`. Different directories are independent
+worlds with independent taxonomies. Suggest gitignoring the derived files
+there (`graph.json`, `atlas.html`, `catalog/`, `graph.dirty`, `debug.log`)
+but NOT `categories.json` — the curated categorization belongs in version
+control.
 
 ## Categorization
 
@@ -55,10 +58,9 @@ violation; fix and retry.
   wrong → reassign. Never touch unchanged skills. **A run must end with
   zero uncategorized skills** — uncategorized is a transitional state
   between runs, never an acceptable end state.
-- **Project skills are categorized too.** categorize.py follows the view
-  automatically: run from a project directory it operates on that
-  project's graph, so project-scope skills and collision-renamed ids
-  (`name@user` / `name@project`) are assigned like any other skill.
+- **Every registered skill in this scope's graph is categorized** —
+  plugins, user skills, and this directory's own project skills alike
+  (including collision-renamed ids like `name@user` / `name@project`).
 
 ## Interpreting exit codes
 
@@ -80,12 +82,10 @@ violation; fix and retry.
   delete, always rebuildable.
 - **`categories.json` is curated state — the one exception to
   rebuild-never-repair.** Never delete or regenerate it; regeneration
-  discards the frozen taxonomy and every assignment. Suggest backing it up.
-  It is split per scope: the global file (`~/.claude/skill-atlas/`) holds
-  the taxonomy plus user/plugin assignments; each project's
-  `.claude/skill-atlas/categories.json` holds only that project's
-  view-local assignments (no taxonomy) and travels with the repo.
-  `config.json` is user config (the searchable-plugins opt-in, global).
+  discards the frozen taxonomy and every assignment. Each scope carries
+  its own complete file (taxonomy + assignments) in
+  `./.claude/skill-atlas/` — commit it with the repo. `config.json`
+  (the searchable-plugins opt-in) is per-scope user config.
 - The taxonomy freezes at bootstrap. Renaming or merging categories is a
   hand-edit of categories.json (taxonomy AND assignments) validated via
   `categorize.py import`, followed by a rebuild.

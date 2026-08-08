@@ -2,10 +2,10 @@
 
 import json
 import os
-import re
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 import helpers
 import atlas_discovery
@@ -15,7 +15,8 @@ import build_graph
 
 
 def _build():
-    return build_graph.main(["--global-only", "--quiet", "--cwd", os.getcwd()])
+    neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
+    return build_graph.main(["--quiet", "--cwd", neutral])
 
 
 def _index():
@@ -29,7 +30,7 @@ def _shard(name):
 class TestShards(unittest.TestCase):
     def test_index_and_shards_shape(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             _build()
             index = _index()
             # name(count) — description — tokens; counts are catalog counts
@@ -55,7 +56,7 @@ class TestShards(unittest.TestCase):
 
     def test_searchable_tier_included_when_opted_in(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             helpers.write_config(sandbox, helpers.searchable_config("beta"))
             _build()
             self.assertIn("## beta:x [searchable]", _shard("eng"))
@@ -76,7 +77,7 @@ class TestShards(unittest.TestCase):
 
     def test_stale_marker_renders(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            obj = helpers.approved_categories()
+            obj = helpers.approved_categories(sandbox)
             obj["assignments"]["alpha:one"]["desc_hash"] = "sha256:" + "0" * 64
             helpers.write_categories(sandbox, obj)
             _build()
@@ -84,7 +85,7 @@ class TestShards(unittest.TestCase):
 
     def test_deterministic_and_removes_stale_shards(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             _build()
             first = {p.name: p.read_bytes()
                      for p in atlas_paths.catalog_dir().glob("*.md")}
@@ -94,7 +95,7 @@ class TestShards(unittest.TestCase):
             self.assertEqual(first, second)
 
             # Rename a category (taxonomy AND assignments): old shard goes.
-            renamed = helpers.approved_categories()
+            renamed = helpers.approved_categories(sandbox)
             renamed["taxonomy"][0]["name"] = "engineering"
             for entry in renamed["assignments"].values():
                 entry["categories"] = ["engineering" if c == "eng" else c
@@ -107,14 +108,14 @@ class TestShards(unittest.TestCase):
 
     def test_check_mode_writes_no_shards(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            helpers.write_categories(sandbox, helpers.approved_categories())
-            build_graph.main(["--global-only", "--quiet", "--check",
-                              "--cwd", os.getcwd()])
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
+            build_graph.main(["--quiet", "--check",
+                              "--cwd", str(sandbox.tmp)])
             self.assertFalse(atlas_paths.catalog_dir().exists())
 
     def test_hook_rebuild_refreshes_shards(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            helpers.write_categories(sandbox, helpers.approved_categories())
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
             result = subprocess.run(
                 [sys.executable, str(helpers.SCRIPTS / "check_stale.py")],
                 cwd=sandbox.tmp, env=os.environ.copy(),

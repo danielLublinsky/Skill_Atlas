@@ -103,15 +103,15 @@ class TestGraphBuild(unittest.TestCase):
 
     def test_main_writes_graph_and_clears_dirty(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            atlas_paths.atlas_home().mkdir(parents=True, exist_ok=True)
-            atlas_paths.dirty_path().touch()
+            home = helpers.atlas_dir(sandbox.project_dir)
+            home.mkdir(parents=True, exist_ok=True)
+            (home / "graph.dirty").touch()
             code = build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             self.assertEqual(code, 1)
-            graph = json.loads(atlas_paths.graph_path().read_text())
+            graph = json.loads((home / "graph.json").read_text())
             self.assertEqual(graph["version"], 3)
-            self.assertFalse(atlas_paths.dirty_path().exists())
-            leftovers = [p for p in atlas_paths.atlas_home().iterdir()
-                         if p.suffix == ".tmp"]
+            self.assertFalse((home / "graph.dirty").exists())
+            leftovers = [p for p in home.iterdir() if p.suffix == ".tmp"]
             self.assertEqual(leftovers, [])
 
     def test_check_mode_writes_nothing(self):
@@ -119,84 +119,76 @@ class TestGraphBuild(unittest.TestCase):
             code = build_graph.main(["--cwd", str(sandbox.project_dir),
                                      "--check", "--quiet"])
             self.assertEqual(code, 1)
-            self.assertFalse(atlas_paths.graph_path().exists())
-            self.assertFalse(
-                atlas_paths.project_graph_path(sandbox.project_dir).exists())
+            self.assertFalse(helpers.atlas_dir(sandbox.project_dir).exists())
 
 
-class TestDualViews(unittest.TestCase):
-    def test_main_builds_both_views(self):
+class TestScopes(unittest.TestCase):
+    def test_each_directory_is_its_own_scope(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            code = build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
+            neutral = sandbox.tmp / "neutral"
+            neutral.mkdir()
+            code = build_graph.main(["--cwd", str(neutral), "--quiet"])
             self.assertEqual(code, 1)
-            global_graph = json.loads(atlas_paths.graph_path().read_text())
-            self.assertEqual(global_graph["view"], "global")
-            self.assertIsNone(global_graph["project"])
-            # Machine-level: 3 user + 2 alpha + 2 beta, no project skills,
-            # hence no graphify collision either.
-            self.assertEqual(global_graph["stats"]["skills"], 7)
-            self.assertEqual(global_graph["stats"]["duplicate_names"], [])
+            neutral_graph = json.loads(
+                (helpers.atlas_dir(neutral) / "graph.json").read_text())
+            self.assertEqual(neutral_graph["view"], "local")
+            self.assertEqual(neutral_graph["project"], "neutral")
+            # No .claude of its own: machine collection only, no collision.
+            self.assertEqual(neutral_graph["stats"]["skills"], 7)
+            self.assertEqual(neutral_graph["stats"]["duplicate_names"], [])
 
+            build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
             project_graph = json.loads(
-                atlas_paths.project_graph_path(sandbox.project_dir).read_text())
-            self.assertEqual(project_graph["view"], "project")
-            self.assertEqual(project_graph["project"], "project")
+                (helpers.atlas_dir(sandbox.project_dir) / "graph.json").read_text())
             self.assertEqual(project_graph["stats"]["skills"], 8)
             self.assertEqual(project_graph["stats"]["duplicate_names"], ["graphify"])
 
-    def test_project_settings_override_flips_enabled(self):
+    def test_scope_settings_override_flips_enabled(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             (sandbox.project_dir / ".claude" / "settings.json").write_text(
                 json.dumps({"enabledPlugins": {"beta@fake-mp": True}}))
+            neutral = sandbox.tmp / "neutral"
+            neutral.mkdir()
+            build_graph.main(["--cwd", str(neutral), "--quiet"])
             build_graph.main(["--cwd", str(sandbox.project_dir), "--quiet"])
-            global_graph = json.loads(atlas_paths.graph_path().read_text())
+            neutral_graph = json.loads(
+                (helpers.atlas_dir(neutral) / "graph.json").read_text())
             project_graph = json.loads(
-                atlas_paths.project_graph_path(sandbox.project_dir).read_text())
+                (helpers.atlas_dir(sandbox.project_dir) / "graph.json").read_text())
 
-            g_beta = next(n for n in global_graph["nodes"] if n["id"] == "beta:x")
+            n_beta = next(n for n in neutral_graph["nodes"] if n["id"] == "beta:x")
             p_beta = next(n for n in project_graph["nodes"] if n["id"] == "beta:x")
-            self.assertFalse(g_beta["enabled"])   # user settings.local: disabled
-            self.assertTrue(p_beta["enabled"])    # project override: enabled
+            self.assertFalse(n_beta["enabled"])   # user settings.local: disabled
+            self.assertTrue(p_beta["enabled"])    # this scope's override: enabled
 
-            # And classification follows: the mention of x is dangling
-            # (disabled) globally but healthy in the project view.
-            g_edge = next(e for e in global_graph["edges"]
+            # And classification follows per scope: the mention of x is
+            # dangling where beta is disabled, healthy where it is enabled.
+            n_edge = next(e for e in neutral_graph["edges"]
                           if e["source"] == "alpha:two" and e["target"] == "beta:x")
             p_edge = next(e for e in project_graph["edges"]
                           if e["source"] == "alpha:two" and e["target"] == "beta:x")
-            self.assertEqual(g_edge["kind"], "dangling")
+            self.assertEqual(n_edge["kind"], "dangling")
             self.assertEqual(p_edge["kind"], "mentions")
 
-    def test_view_flags(self):
+    def test_any_directory_becomes_a_scope(self):
+        # Auto-init: an explicit build in a plain directory creates its
+        # .claude/skill-atlas and produces a full atlas there.
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            build_graph.main(["--cwd", str(sandbox.project_dir),
-                              "--global-only", "--quiet"])
-            self.assertTrue(atlas_paths.graph_path().exists())
-            self.assertFalse(
-                atlas_paths.project_graph_path(sandbox.project_dir).exists())
-
-            build_graph.main(["--cwd", str(sandbox.project_dir),
-                              "--project-only", "--quiet"])
-            self.assertTrue(
-                atlas_paths.project_graph_path(sandbox.project_dir).exists())
-
-            code = build_graph.main(["--cwd", str(sandbox.tmp),
-                                     "--project-only", "--quiet"])
-            self.assertEqual(code, 2)  # not a project
-
-    def test_non_project_cwd_builds_global_only(self):
-        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            code = build_graph.main(["--cwd", str(sandbox.tmp), "--quiet"])
+            plain = sandbox.tmp / "plain"
+            plain.mkdir()
+            code = build_graph.main(["--cwd", str(plain), "--quiet"])
             self.assertEqual(code, 1)
-            self.assertTrue(atlas_paths.graph_path().exists())
-            self.assertFalse((sandbox.tmp / ".claude").exists())
+            self.assertTrue((helpers.atlas_dir(plain) / "graph.json").is_file())
+            self.assertTrue(atlas_paths.catalog_index_path().is_file())
 
 
 class TestCategoryMerge(unittest.TestCase):
     def test_category_merge_and_stats(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             helpers.write_categories(
-                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
+                sandbox,
+                helpers.approved_categories(sandbox, cwd=sandbox.project_dir),
+                cwd=sandbox.project_dir)
             graph, code = _build(sandbox)
             self.assertEqual(code, 1)  # fixture defects unchanged by Phase 2
             by_id = {n["id"]: n for n in graph["nodes"]}
@@ -226,10 +218,10 @@ class TestCategoryMerge(unittest.TestCase):
 
     def test_stale_hash_keeps_labels(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj = helpers.approved_categories(sandbox, cwd=sandbox.project_dir)
             obj["assignments"]["alpha:one"]["desc_hash"] = \
                 "sha256:" + "0" * 64
-            helpers.write_categories(sandbox, obj)
+            helpers.write_categories(sandbox, obj, cwd=sandbox.project_dir)
             graph, _ = _build(sandbox)
             node = next(n for n in graph["nodes"] if n["id"] == "alpha:one")
             self.assertTrue(node["category_stale"])
@@ -240,9 +232,9 @@ class TestCategoryMerge(unittest.TestCase):
         # A hand-rename that leaves assignments pointing at a category that
         # no longer exists is a curated-state defect: exit 2, named.
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj = helpers.approved_categories(sandbox, cwd=sandbox.project_dir)
             obj["taxonomy"][0]["name"] = "engineering"  # orphans "eng" labels
-            helpers.write_categories(sandbox, obj)
+            helpers.write_categories(sandbox, obj, cwd=sandbox.project_dir)
             stderr = io.StringIO()
             with contextlib.redirect_stderr(stderr):
                 code = build_graph.main(["--cwd", str(sandbox.project_dir),
@@ -252,11 +244,11 @@ class TestCategoryMerge(unittest.TestCase):
 
     def test_unknown_assignment_id_is_environmental(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            obj = helpers.approved_categories(cwd=sandbox.project_dir)
+            obj = helpers.approved_categories(sandbox, cwd=sandbox.project_dir)
             obj["assignments"]["ghost:skill"] = {
                 "categories": ["eng"], "desc_hash": "sha256:" + "0" * 64,
                 "assigned_at": "2026-08-07"}
-            helpers.write_categories(sandbox, obj)
+            helpers.write_categories(sandbox, obj, cwd=sandbox.project_dir)
             graph, code = _build(sandbox)
             self.assertEqual(code, 1)  # never fatal
             self.assertEqual(graph["stats"]["orphan_assignments"], ["ghost:skill"])
@@ -264,8 +256,11 @@ class TestCategoryMerge(unittest.TestCase):
     def test_searchable_tier_from_config(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             helpers.write_categories(
-                sandbox, helpers.approved_categories(cwd=sandbox.project_dir))
-            helpers.write_config(sandbox, helpers.searchable_config("beta", "alpha"))
+                sandbox,
+                helpers.approved_categories(sandbox, cwd=sandbox.project_dir),
+                cwd=sandbox.project_dir)
+            helpers.write_config(sandbox, helpers.searchable_config("beta", "alpha"),
+                                 cwd=sandbox.project_dir)
             graph, _ = _build(sandbox)
             by_id = {n["id"]: n for n in graph["nodes"]}
             self.assertTrue(by_id["beta:x"]["searchable"])
@@ -281,8 +276,9 @@ class TestCategoryMerge(unittest.TestCase):
 
     def test_malformed_categories_exits_2(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
-            atlas_paths.atlas_home().mkdir(parents=True, exist_ok=True)
-            atlas_paths.categories_path().write_text("{broken")
+            home = helpers.atlas_dir(sandbox.project_dir)
+            home.mkdir(parents=True, exist_ok=True)
+            (home / "categories.json").write_text("{broken")
             stderr = io.StringIO()
             with contextlib.redirect_stderr(stderr):
                 code = build_graph.main(["--cwd", str(sandbox.project_dir),
