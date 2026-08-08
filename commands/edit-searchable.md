@@ -79,11 +79,25 @@ On exit 3, fix exactly what stderr names and retry.
 
 ## 5. Refresh
 
-Invoke the **skill-atlas** skill. It owns the whole refresh — rebuild,
-categorize anything newly uncategorized, re-render `atlas.html`, report — so
-none of that is repeated here.
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_graph.py"   # re-emits catalog/ shards too
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" status
+```
 
-Then add what only this command knows: each plugin's before → after tier, the
+That is the whole refresh a tier change needs. The build rewrites the shards
+itself, and a toggle can never create an uncategorized skill: categorization
+covers every *registered* skill whatever its tier, and opting in changes the
+tier, not the registration.
+
+**Only if `counts.uncategorized > 0`, invoke the skill-atlas skill** to file
+them. That backlog is pre-existing drift — a plugin installed since the last
+`/skill-atlas` run — but this is the moment it starts to hurt, because those
+skills now surface in `catalog/uncategorized.md` instead of a real category.
+Do not invoke it otherwise: a full atlas pass and a second report buy nothing
+here.
+
+Then report what only this command knows: each plugin's before → after tier, the
 per-session token change (counting `enabled` → `searchable` moves only), which
 settings scope was written, and anything not offered in step 3. Close on the
 timing — graph, catalog and atlas are current now, but the context saving

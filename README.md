@@ -57,19 +57,22 @@ half only — on a still-enabled plugin it changes nothing, because
 `claude plugin disable <plugin>`.
 
 `/skill-atlas:edit-searchable` does both, interactively. It lists every
-plugin with its tier, skill count and per-session token cost, always asks
-first whether you are **adding** or **removing** (both can run in one pass),
-multi-selects the plugins, asks which settings scope to write, then
-categorizes any skills that arrived since the last `/skill-atlas` run and
-rebuilds the catalog and `atlas.html`. Removing a plugin from the tier
-leaves it **off**, not enabled — the command asks which you meant.
+plugin with its tier and skill count, always asks first whether you are
+**adding a plugin** or **removing** one, multi-selects which, asks which
+settings scope to write, then rebuilds the catalog and `atlas.html`.
+Removing a plugin from the tier leaves it **off**, not enabled — the
+command asks which you meant.
 
 The unit is a plugin, not an individual skill: selecting one moves all its
 skills together (per-skill overrides are deferred — DESIGN-PHASE2 §10).
 
-Categorization is tier-blind — every *registered* skill gets filed whatever
-its tier — so a plugin already covered by `/skill-atlas` needs nothing extra
-when you opt it in; its skills just start appearing in shards.
+A tier change needs no re-categorization: categorization is tier-blind
+(every *registered* skill is filed whatever its tier) and `build_graph.py`
+re-emits the shards itself, so an opted-in plugin's skills simply start
+appearing there. The command falls back to `/skill-atlas` only when
+`uncategorized > 0` — pre-existing drift from a plugin installed since the
+last run, whose skills would otherwise surface in `catalog/uncategorized.md`
+instead of a real category.
 
 Pick the settings scope to match `config.json`, which is committed:
 `--scope project` keeps the disable and the opt-in travelling together.
