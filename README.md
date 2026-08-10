@@ -93,11 +93,13 @@ flowchart LR
     S --> E["🟢 <b>enabled</b><br/><i>invoke natively</i>"]
     S --> F["🟣 <b>searchable</b><br/><i>read its path,<br/>follow as instructions</i>"]
 
-    classDef plain fill:transparent,stroke:#8a8578,stroke-width:1.5px
+    classDef file stroke:#8a8578,stroke-width:1.5px
+    classDef ghost fill:transparent,stroke:#8a8578,stroke-width:1.5px
     classDef hit fill:#1baf7a26,stroke:#1baf7a,stroke-width:2px
     classDef dormant fill:#8a5cd626,stroke:#8a5cd6,stroke-width:2px
     classDef muted fill:transparent,stroke:#8a8578,stroke-width:1px,stroke-dasharray:4 3
-    class A,I,S plain
+    class I,S file
+    class A ghost
     class E hit
     class F dormant
     class X muted
