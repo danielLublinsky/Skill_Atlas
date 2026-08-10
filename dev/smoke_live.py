@@ -95,8 +95,9 @@ def main() -> int:
     expected = independent_registered_count(claude_dir, cwd)
     check("registered count matches independent recount",
           stats["skills"] == expected, f"{stats['skills']} vs {expected}")
-    # stats.skillmd_on_disk is computed against the symlinked temp claude
-    # dir, where rglob does not descend — recount against the real one.
+    # The naive count is opt-in on builds (--naive-count) and would be
+    # computed against the symlinked temp claude dir anyway, where rglob
+    # does not descend — recount independently against the real one.
     naive_on_disk = sum(1 for _ in real.rglob("SKILL.md"))
     check("registered well below naive on-disk count",
           stats["skills"] < naive_on_disk,

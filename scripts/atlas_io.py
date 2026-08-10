@@ -63,7 +63,12 @@ def debug_note(component: str, note: str) -> None:
 def _append(line: str) -> None:
     try:
         log = atlas_paths.debug_log_path()
-        log.parent.mkdir(parents=True, exist_ok=True)
+        # Never initialize a scope just to log into it: a FAILED build in an
+        # untouched directory must not create .claude/skill-atlas/ (that
+        # would arm the SessionStart hook there). Successful writes auto-init
+        # via _atomic_write's mkdir; logging waits until then.
+        if not log.parent.is_dir():
+            return
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         with open(log, "a", encoding="utf-8") as handle:
             handle.write(f"{stamp} {line}\n")

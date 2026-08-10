@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import atlas_annotate
 import atlas_categories
 import atlas_discovery
 import atlas_extract
@@ -56,7 +57,7 @@ def _classify_mention(source, token, registered_by_id, by_name, unreg_lookup,
             "kind": "dangling", "reason": "absent"}
 
 
-def build(cwd=None) -> tuple:
+def build(cwd=None, naive_count=False) -> tuple:
     """Build the one local view of this scope: the machine collection plus
     the scope's own skills, with the scope's settings overrides. Returns
     (graph, exit_code). Raises on unbuildable environments — main() maps
@@ -70,22 +71,10 @@ def build(cwd=None) -> tuple:
     # Phase 2 annotation (DESIGN-PHASE2 §3.3): categories, staleness and the
     # searchable tier ride every skill record from here on, so node assembly,
     # stats and the renderer see them for free. Curated-state schema
-    # violations raise CategoriesError — fail loud, exit 2 via main(). A
-    # stale desc_hash keeps its labels in effect; an assignment whose skill
-    # left the graph is environmental drift, surfaced as orphan_assignments.
+    # violations raise CategoriesError — fail loud, exit 2 via main().
     categories = atlas_categories.load_categories_strict()
     config = atlas_categories.load_config_strict()
-    assignments = categories["assignments"]
-    searchable_plugins = set(config["searchable_plugins"])
-    for skill in skills:
-        entry = assignments.get(skill["id"])
-        skill["categories"] = list(entry["categories"]) if entry else []
-        skill["category_stale"] = bool(entry) and (
-            entry["desc_hash"] != atlas_categories.desc_hash(skill.get("description")))
-        skill["searchable"] = (
-            skill["scope"] == "plugin"
-            and (skill["plugin"] in searchable_plugins
-                 or skill["plugin_key"] in searchable_plugins))
+    atlas_annotate.annotate_skills(skills, categories, config)
 
     registered_by_id = {s["id"]: s for s in skills}
     by_name = {}
@@ -171,18 +160,25 @@ def build(cwd=None) -> tuple:
              + [dangling_nodes[k] for k in sorted(dangling_nodes)]
              + [file_nodes[k] for k in sorted(file_nodes)])
 
-    # View-local (project-marked) assignments and names shadowed by a
-    # collision rename are resolvable elsewhere — not environmental drift.
-    orphan_assignments = atlas_categories.orphan_ids(
-        assignments, {s["id"] for s in skills}, discovery["duplicate_names"])
-    # The search-facing rollup covers tiers 1+2 only (enabled or searchable);
-    # tier-off skills are never search-visible. Zero-count categories are
-    # kept: the frozen taxonomy is a stable index shape.
-    catalog_skills = [s for s in skills if s["enabled"] or s["searchable"]]
-    catalog_counts = {entry["name"]: 0 for entry in categories["taxonomy"]}
-    for skill in catalog_skills:
-        for label in skill["categories"]:
-            catalog_counts[label] += 1
+    stats = {
+        "skills": len(skills),
+        "enabled": sum(1 for s in skills if s["enabled"]),
+        "unregistered": len(unregistered),
+        "files": len(file_nodes),
+        "edges": len(edges),
+        "broken_refs": broken_refs,
+        "dangling": len(dangling_edges),
+        "orphans": len(orphans),
+        "orphan_ids": sorted(orphans),
+        "duplicate_names": discovery["duplicate_names"],
+        # TODO states for the next /skill-atlas run — never defects, so
+        # never part of the exit code (DESIGN-PHASE2 §3.3).
+        **atlas_annotate.phase2_stats(skills, categories,
+                                      discovery["duplicate_names"]),
+    }
+    if naive_count:
+        # Diagnostic only — a machine-wide rglob, so opt-in (--naive-count).
+        stats["skillmd_on_disk"] = atlas_discovery.naive_skillmd_count()
 
     graph = {
         "version": 3,
@@ -205,31 +201,7 @@ def build(cwd=None) -> tuple:
              "scope": u["scope"]}
             for u in unregistered
         ],
-        "stats": {
-            "skills": len(skills),
-            "enabled": sum(1 for s in skills if s["enabled"]),
-            "unregistered": len(unregistered),
-            "files": len(file_nodes),
-            "edges": len(edges),
-            "broken_refs": broken_refs,
-            "dangling": len(dangling_edges),
-            "orphans": len(orphans),
-            "orphan_ids": sorted(orphans),
-            "duplicate_names": discovery["duplicate_names"],
-            "skillmd_on_disk": atlas_discovery.naive_skillmd_count(),
-            # TODO states for the next /skill-atlas run — never defects, so
-            # never part of the exit code (DESIGN-PHASE2 §3.3).
-            "uncategorized": sum(1 for s in skills if not s["categories"]),
-            "stale_categories": sum(1 for s in skills if s["category_stale"]),
-            "searchable": sum(1 for s in skills if s["searchable"]),
-            "orphan_assignments": orphan_assignments,
-            "catalog": {
-                "dormant": sum(1 for s in catalog_skills if not s["enabled"]),
-                "categories": catalog_counts,
-                "uncategorized": sum(1 for s in catalog_skills
-                                     if not s["categories"]),
-            },
-        },
+        "stats": stats,
     }
     exit_code = 1 if (broken_refs or dangling_edges) else 0
     return graph, exit_code
@@ -244,9 +216,11 @@ def report(graph, stream=sys.stdout):
     if stats["stale_categories"]:
         todo.append(f"{stats['stale_categories']} stale categories")
     todo_text = (", " + ", ".join(todo)) if todo else ""
+    naive = (f" [naive on-disk count: {stats['skillmd_on_disk']}]"
+             if "skillmd_on_disk" in stats else "")
     print(f"skill-atlas [{label}]: {stats['skills']} skills ({stats['enabled']} enabled), "
-          f"{stats['files']} files, {stats['edges']} edges{todo_text} "
-          f"[naive on-disk count: {stats['skillmd_on_disk']}]", file=stream)
+          f"{stats['files']} files, {stats['edges']} edges{todo_text}{naive}",
+          file=stream)
     if stats["duplicate_names"]:
         print(f"  duplicate names: {', '.join(stats['duplicate_names'])}", file=stream)
     for edge in graph["edges"]:
@@ -259,6 +233,21 @@ def report(graph, stream=sys.stdout):
                   file=stream)
 
 
+# Dropped into the atlas dir the first time a build creates it, so the
+# derived caches never show up as repo noise. Not self-ignoring: commit it
+# alongside categories.json so clones inherit it. Deleting it is a user
+# choice that sticks — it is never recreated.
+_SCOPE_GITIGNORE = """\
+# derived by skill-atlas — these are caches, safe to delete.
+# Commit categories.json (curated) and config.json (per-scope opt-in).
+graph.json
+atlas.html
+catalog/
+graph.dirty
+debug.log
+"""
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Build graph.json from skill manifests.")
     parser.add_argument("--check", action="store_true",
@@ -267,15 +256,23 @@ def main(argv=None) -> int:
                         help="scope directory (default: cwd); its "
                              ".claude/skill-atlas is created on first write")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--naive-count", action="store_true",
+                        help="also report what a naive machine-wide SKILL.md "
+                             "walk would find (diagnostic, slow)")
     args = parser.parse_args(argv)
     cwd = args.cwd or os.getcwd()
 
     try:
-        graph, worst = build(cwd=cwd)
+        atlas_paths.set_scope(cwd)
+        newly_init = not args.check and not atlas_paths.initialized()
+        graph, worst = build(cwd=cwd, naive_count=args.naive_count)
         if not args.check:
             # Auto-init: the atomic writes create .claude/skill-atlas here.
             atlas_io.atomic_write_json(atlas_paths.graph_path(), graph)
             atlas_shards.emit(graph)
+            if newly_init:
+                atlas_io.atomic_write_text(
+                    atlas_paths.atlas_home() / ".gitignore", _SCOPE_GITIGNORE)
             try:
                 atlas_paths.dirty_path().unlink()
             except OSError:

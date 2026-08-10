@@ -142,6 +142,7 @@ class TestAtomicIO(unittest.TestCase):
 
     def test_debug_log_records_type_name_only(self):
         with helpers.EnvSandbox():
+            atlas_paths.atlas_home().mkdir(parents=True)
             try:
                 json.loads("CANARY_SECRET_XYZ this is parsed file content")
             except json.JSONDecodeError as exc:
@@ -150,6 +151,13 @@ class TestAtomicIO(unittest.TestCase):
             self.assertIn("JSONDecodeError", content)
             self.assertIn("/some/file.jsonl:7", content)
             self.assertNotIn("CANARY_SECRET_XYZ", content)
+
+    def test_debug_log_never_initializes_a_scope(self):
+        # A failed run in an untouched directory must not create the atlas
+        # dir just to log into it — that would arm the SessionStart hook.
+        with helpers.EnvSandbox():
+            atlas_io.debug_log("test", "/some/file", 0, ValueError())
+            self.assertFalse(atlas_paths.atlas_home().exists())
 
 
 if __name__ == "__main__":

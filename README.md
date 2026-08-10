@@ -59,8 +59,9 @@ plugin can never return through a side door.
 Discovery is **manifest-driven** — `installed_plugins.json` → each
 `plugin.json` → settings — so marketplace catalogues, stale cached plugin
 versions, and deprecated trees never pollute the picture. (The naive
-"every directory with a SKILL.md" count is reported alongside for
-comparison; it over-counts by about 60% on a real machine.)
+"every directory with a SKILL.md" count can be reported alongside for
+comparison — `build_graph.py --naive-count` — and over-counts by about
+60% on a real machine.)
 
 Skills are nodes. The edges are the interesting part:
 
@@ -114,10 +115,13 @@ by hand it's `claude plugin disable <plugin>` plus `categorize.py config
 
 All state is project-local, in `./.claude/skill-atlas/`. **Commit
 `categories.json`** — it's your curated taxonomy, and the one file that
-isn't a rebuildable cache; gitignore `graph.json`, `atlas.html`,
-`catalog/`, `graph.dirty`, and `debug.log` beside it. Skill Atlas reads
-manifests and skill files only; it never opens `~/.claude/projects`, and
-it deliberately does not track usage.
+isn't a rebuildable cache. The first build drops a `.gitignore` inside
+the atlas dir covering the derived siblings (`graph.json`, `atlas.html`,
+`catalog/`, `graph.dirty`, `debug.log`); commit it along with
+`categories.json` (a repo that ignores `.claude/` wholesale needs
+negation rules first). Skill Atlas reads manifests and skill files only;
+it never opens `~/.claude/projects`, and it deliberately does not track
+usage.
 
 Full spec and the reasoning behind every decision: [DESIGN.md](DESIGN.md)
 (graph and visualization) and [DESIGN-PHASE2.md](DESIGN-PHASE2.md)

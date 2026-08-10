@@ -1,19 +1,18 @@
-# Claude Code local settings
-.claude/
+# Claude Code local state — the curated skill-atlas files are re-included
+# below (`.claude/*`, not `.claude/`: git cannot re-include anything under
+# a directory ignored with a trailing-slash pattern).
+.claude/*
+!.claude/skill-atlas/
+.claude/skill-atlas/*
+!.claude/skill-atlas/.gitignore
+!.claude/skill-atlas/categories.json
+!.claude/skill-atlas/config.json
 
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-
-# Generated artifacts
-graph.json
-usage.json
-atlas.html
-sessions/
-*.dirty
-debug.log
 
 # OS
 .DS_Store

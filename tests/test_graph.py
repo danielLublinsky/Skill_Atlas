@@ -68,7 +68,8 @@ class TestGraphBuild(unittest.TestCase):
             self.assertEqual(stats["duplicate_names"], ["graphify"])
             self.assertEqual(sorted(stats["orphan_ids"]),
                              ["graphify@project", "graphify@user", "linked-skill"])
-            self.assertGreater(stats["skillmd_on_disk"], stats["skills"])
+            # The machine-wide naive walk is opt-in; default builds skip it.
+            self.assertNotIn("skillmd_on_disk", stats)
 
             by_id = {n["id"]: n for n in graph["nodes"]}
             qa_node = by_id["skill?:qa"]
@@ -95,11 +96,28 @@ class TestGraphBuild(unittest.TestCase):
             self.assertEqual(graph["stats"]["dangling"], 0)
             self.assertEqual(graph["stats"]["broken_refs"], 0)
 
+    def test_naive_count_opt_in(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            graph, _ = build_graph.build(cwd=sandbox.project_dir, naive_count=True)
+            self.assertGreater(graph["stats"]["skillmd_on_disk"],
+                               graph["stats"]["skills"])
+
     def test_unparseable_manifest_exits_2(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             (sandbox.claude / "plugins" / "installed_plugins.json").write_text("{broken")
             code = build_graph.main(["--cwd", str(sandbox.project_dir)])
             self.assertEqual(code, 2)
+
+    def test_failed_build_does_not_initialize_scope(self):
+        # Exit 2 in a never-initialized directory must leave it untouched —
+        # a scope containing only debug.log would arm the SessionStart hook.
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            (sandbox.claude / "plugins" / "installed_plugins.json").write_text("{broken")
+            fresh = sandbox.tmp / "fresh"
+            fresh.mkdir()
+            code = build_graph.main(["--cwd", str(fresh), "--quiet"])
+            self.assertEqual(code, 2)
+            self.assertFalse((fresh / ".claude").exists())
 
     def test_main_writes_graph_and_clears_dirty(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
@@ -180,6 +198,21 @@ class TestScopes(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertTrue((helpers.atlas_dir(plain) / "graph.json").is_file())
             self.assertTrue(atlas_paths.catalog_index_path().is_file())
+
+    def test_first_build_writes_scope_gitignore_once(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            plain = sandbox.tmp / "plain"
+            plain.mkdir()
+            build_graph.main(["--cwd", str(plain), "--quiet"])
+            gitignore = helpers.atlas_dir(plain) / ".gitignore"
+            rules = [line for line in gitignore.read_text().splitlines()
+                     if line and not line.startswith("#")]
+            self.assertEqual(rules, ["graph.json", "atlas.html", "catalog/",
+                                     "graph.dirty", "debug.log"])
+            # Write-once: deleting it is a user choice that sticks.
+            gitignore.unlink()
+            build_graph.main(["--cwd", str(plain), "--quiet"])
+            self.assertFalse(gitignore.exists())
 
 
 class TestCategoryMerge(unittest.TestCase):

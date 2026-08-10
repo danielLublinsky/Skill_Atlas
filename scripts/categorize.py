@@ -31,8 +31,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import atlas_annotate
 import atlas_categories
+import atlas_discovery
+import atlas_fingerprint
+import atlas_io
 import atlas_paths
+import atlas_shards
 
 
 class EnvError(Exception):
@@ -149,6 +154,49 @@ def _write_updates(view, updates) -> None:
     atlas_categories.write_categories(view["categories"])
 
 
+def _refresh_derived(view) -> dict:
+    """Re-derive graph.json's category annotations, taxonomy and stats from
+    the curated state that just landed, then re-emit the catalog shards —
+    exactly what a full rebuild would produce, without re-discovery. The
+    fingerprint is recomputed (stat-only walk) because categories.json is a
+    manifest input: without it, every next SessionStart would see a
+    mismatch and full-rebuild. graph.dirty is deliberately left alone — a
+    refresh is not a re-discovery, and clearing the flag could swallow a
+    concurrent skill edit."""
+    graph = view["graph"]
+    skills = _registered(graph)
+    atlas_annotate.annotate_skills(skills, view["categories"], view["config"])
+    graph["taxonomy"] = view["categories"]["taxonomy"]
+    graph["stats"].update(atlas_annotate.phase2_stats(
+        skills, view["categories"], graph["stats"].get("duplicate_names", [])))
+    graph["generated_at"] = datetime.datetime.now(datetime.timezone.utc) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+    graph["source_fingerprint"] = atlas_fingerprint.compute(
+        atlas_discovery.skill_md_paths(), atlas_paths.manifest_paths())
+    atlas_io.atomic_write_json(atlas_paths.graph_path(), graph)
+    atlas_shards.emit(graph)
+    return graph["stats"]
+
+
+def _finish(view) -> None:
+    """Best-effort derived refresh after a successful curated write. The
+    write already landed and categories.json is the source of truth, so a
+    refresh failure warns instead of failing the command (failing would
+    make the caller retry the write and hit "already bootstrapped"); the
+    next SessionStart self-heals via the fingerprint mismatch."""
+    try:
+        stats = _refresh_derived(view)
+    except Exception as exc:
+        atlas_io.debug_log("categorize", str(atlas_paths.graph_path()), 0, exc)
+        _warn([f"derived refresh failed ({type(exc).__name__}) — run "
+               "build_graph.py to refresh graph.json and the catalog"])
+        return
+    print(f"catalog: {stats['skills']} skills, "
+          f"{stats['uncategorized']} uncategorized, "
+          f"{stats['stale_categories']} stale, "
+          f"{len(view['categories']['taxonomy'])} categories")
+
+
 def _require_bootstrapped(categories) -> None:
     if not atlas_categories.is_bootstrapped(categories):
         raise PayloadError(["not bootstrapped yet — run the bootstrap flow first "
@@ -189,7 +237,10 @@ def cmd_status(args) -> int:
             graph.get("stats", {}).get("duplicate_names", [])),
         "config": view["config"],
     }
-    if args.full:
+    # Unbootstrapped scopes get the full skill list automatically: the
+    # bootstrap flow needs every id + description, and this saves it a
+    # second status call.
+    if args.full or not out["bootstrapped"]:
         out["skills"] = [{"id": n["id"], "description": n.get("description")}
                          for n in sorted(registered, key=lambda n: n["id"])]
     print(json.dumps(out, indent=2, sort_keys=True))
@@ -232,9 +283,6 @@ def cmd_bootstrap(args) -> int:
     updates = {skill_id: _make_entry(registered_by_id[skill_id], labels_for, today)
                for skill_id, labels_for in raw.items()}
     try:
-        # Global file is written even if only project entries exist — the
-        # taxonomy freeze lives there.
-        atlas_categories.write_categories(view["categories"])
         _write_updates(view, updates)
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
@@ -249,6 +297,7 @@ def cmd_bootstrap(args) -> int:
         print(f"  {name}: {counts[name]}")
     print(f"bootstrapped: {len(taxonomy)} categories, "
           f"{len(raw)}/{len(registered_by_id)} skills assigned")
+    _finish(view)
     return 0
 
 
@@ -266,6 +315,7 @@ def cmd_assign(args) -> int:
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"assigned {len(raw)} skill(s)")
+    _finish(view)
     return 0
 
 
@@ -294,6 +344,7 @@ def cmd_confirm(args) -> int:
     except atlas_categories.CategoriesError as exc:
         return _fail(exc.errors)
     print(f"confirmed {len(args.ids)} assignment(s)")
+    _finish(view)
     return 0
 
 
@@ -308,6 +359,7 @@ def cmd_add_category(args) -> int:
         return _fail(exc.errors)
     print(f"added category {args.name!r}; taxonomy now has "
           f"{len(view['categories']['taxonomy'])} categories")
+    _finish(view)
     return 0
 
 
@@ -342,6 +394,8 @@ def cmd_import(args) -> int:
     atlas_categories.write_categories(obj)
     print(f"imported: {len(obj['taxonomy'])} categories, "
           f"{len(obj['assignments'])} assignments")
+    view["categories"] = obj
+    _finish(view)
     return 0
 
 
@@ -443,7 +497,8 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("status", help="machine-readable categorization state")
     p.add_argument("--full", action="store_true",
-                   help="include every registered skill's id and description")
+                   help="include every registered skill's id and description "
+                        "(automatic when the scope is not bootstrapped)")
     p.set_defaults(func=cmd_status)
 
     p = sub.add_parser("bootstrap",

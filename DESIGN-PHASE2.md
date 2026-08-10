@@ -88,6 +88,25 @@ and these amendments override it where they conflict.
    shards 160–1,040 tokens (largest: planning, 12 members). A search costs the index plus one
    shard ≈ 1.2–1.7k tokens, versus ~5k+ for a flat catalog read — the §5 arbitrage holds. The
    session index line measured 216 chars ≈ 54 tokens with all ten categories listed.
+10. **Categorize-driven derived refresh — the post-categorize rebuild is gone (2026-08-10,
+   user decision).** Every state-changing `categorize.py` subcommand (`bootstrap`, `assign`,
+   `confirm`, `add-category`, `import`) re-annotates the graph's registered skill nodes,
+   updates `taxonomy` and the derived stats, recomputes the source fingerprint (stat-only
+   walk — categories.json is a manifest input, so without this every next SessionStart would
+   rebuild), rewrites graph.json and re-emits the catalog shards itself. The `/skill-atlas`
+   flow is now build → categorize → render — no second build. The annotation and stat
+   derivation are shared code (`atlas_annotate.py`), so the build path and the refresh path
+   cannot drift; the refresh never clears `graph.dirty` (it is not a re-discovery). Accepted
+   window: a SKILL.md edited externally between build and refresh gets its new mtime baked
+   into the recomputed fingerprint while the graph carries the old parse — hidden from the
+   SessionStart check until the next change; in-session edits stay covered by the mark_dirty
+   hook. Alongside: `bootstrap` writes categories.json exactly once (a rejected payload
+   leaves nothing — no frozen taxonomy with zero assignments); `status` includes the full
+   skill list automatically when the scope is unbootstrapped (no separate `--full` call in
+   the flow); the naive on-disk count is opt-in (`--naive-count`) so default builds and the
+   hook skip the machine-wide walk; a failed build in an untouched directory no longer
+   creates the scope dir just to write debug.log (the hook stays unarmed); and the first
+   build drops a `.gitignore` covering the derived files inside the atlas dir.
 
 ---
 

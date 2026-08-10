@@ -48,16 +48,40 @@ class TestCategorizationFlow(unittest.TestCase):
             status = json.loads(_cli("status").stdout)
             self.assertFalse(status["bootstrapped"])
             self.assertEqual(status["counts"]["uncategorized"], 7)
+            # Unbootstrapped status carries the full skill list — the
+            # bootstrap flow needs no separate --full call.
+            self.assertEqual(len(status["skills"]), 7)
+
+            # The first build created <scope>/.claude, which adds the scope's
+            # own (empty) skills root to discovery; build once more so the
+            # environment is stable for the drift comparison below.
+            _build()
 
             proc = _cli("bootstrap", stdin_text=json.dumps(
                 {"taxonomy": helpers.TAXONOMY, "assignments": FULL_ASSIGNMENTS}))
             self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("catalog: 7 skills, 0 uncategorized", proc.stdout)
 
-            _build()
+            # No rebuild: the bootstrap itself refreshed graph.json + shards.
             graph = _graph()
             self.assertEqual(graph["stats"]["uncategorized"], 0)
+            self.assertEqual(graph["taxonomy"], helpers.TAXONOMY)
             node = next(n for n in graph["nodes"] if n["id"] == "alpha:two")
             self.assertEqual(node["categories"], ["eng", "docs"])
+            self.assertTrue((atlas_paths.catalog_dir() / "eng.md").is_file())
+
+            # Drift guard: a full rebuild produces the same graph modulo
+            # generated_at, and byte-identical shards — the refresh path and
+            # the build path may never diverge.
+            shards_before = {p.name: p.read_bytes()
+                             for p in atlas_paths.catalog_dir().glob("*.md")}
+            _build()
+            rebuilt = _graph()
+            graph.pop("generated_at"), rebuilt.pop("generated_at")
+            self.assertEqual(graph, rebuilt)
+            shards_after = {p.name: p.read_bytes()
+                            for p in atlas_paths.catalog_dir().glob("*.md")}
+            self.assertEqual(shards_before, shards_after)
 
             # A new skill arrives: visibly uncategorized, nothing reshuffled.
             snapshot = _categories()
@@ -68,6 +92,7 @@ class TestCategorizationFlow(unittest.TestCase):
             _build()
             status = json.loads(_cli("status").stdout)
             self.assertTrue(status["bootstrapped"])
+            self.assertNotIn("skills", status)   # full list only when needed
             self.assertEqual([u["id"] for u in status["uncategorized"]], ["newbie"])
 
             proc = _cli("assign",
@@ -83,6 +108,10 @@ class TestCategorizationFlow(unittest.TestCase):
                 self.assertEqual(json.dumps(after["assignments"][skill_id],
                                             sort_keys=True),
                                  json.dumps(entry, sort_keys=True))
+            # The assign refreshed the graph and shards too — no rebuild.
+            self.assertEqual(_graph()["stats"]["uncategorized"], 0)
+            self.assertIn("## newbie [enabled]",
+                          (atlas_paths.catalog_dir() / "eng.md").read_text())
 
     def test_scopes_are_independent_worlds(self):
         # Fully project-local: each directory carries its own complete

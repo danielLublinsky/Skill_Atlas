@@ -108,6 +108,30 @@ class TestCheckStale(unittest.TestCase):
             self.assertEqual(_graph_file(neutral).stat().st_mtime_ns,
                              neutral_before)
 
+    def test_categorize_refresh_keeps_hook_fresh(self):
+        # The proof the post-categorize rebuild is truly gone: right after
+        # a CLI bootstrap (and no build), the hook finds the fingerprint
+        # fresh and does not rebuild.
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            _init(sandbox.project_dir)
+            _run(CHECK_STALE, sandbox.project_dir)
+            assignments = dict(helpers.ASSIGNED)
+            assignments.update({"beta:y": ["eng"], "linked-skill": ["eng"],
+                                "graphify@user": ["docs"],
+                                "graphify@project": ["docs"]})
+            proc = subprocess.run(
+                [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
+                 "--cwd", str(sandbox.project_dir), "bootstrap"],
+                input=json.dumps({"taxonomy": helpers.TAXONOMY,
+                                  "assignments": assignments}),
+                capture_output=True, text=True, env=os.environ.copy())
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            before = _graph_file(sandbox.project_dir).stat().st_mtime_ns
+            result = _run(CHECK_STALE, sandbox.project_dir)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(_graph_file(sandbox.project_dir).stat().st_mtime_ns,
+                             before)
+
     def test_dirty_flag_consumed(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             _init(sandbox.project_dir)

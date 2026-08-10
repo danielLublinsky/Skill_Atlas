@@ -12,11 +12,17 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    corrected one via `categorize.py import <path>`), and NEVER delete or
    regenerate it. Other exit-2 causes: diagnose from stderr.
 
-2. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" status` and branch:
+2. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" status` and branch.
+   Every successful `bootstrap` / `assign` / `confirm` / `add-category` call
+   refreshes graph.json and `catalog/` itself and ends with a `catalog:`
+   summary line — no rebuild afterwards. The run's final `catalog:` line must
+   show 0 uncategorized; if a call instead warns that the derived refresh
+   failed, run `build_graph.py` once before rendering.
 
    **`bootstrapped: false` → bootstrap now, autonomously (no approval step).**
-   Run `status --full` and read every skill's id and description. Draft 8–12
-   categories, each with a one-line description, following these rules:
+   The status output already includes every skill's id and description
+   (`skills`). Draft 8–12 categories, each with a one-line description,
+   following these rules:
    - describe the task shape in user-intent terms, not implementation terms;
    - when two categories could be confused, let each description name its side
      of the boundary;
@@ -48,9 +54,9 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - For every id in `stale`: re-read its current description. Labels still
      right → batch into `categorize.py confirm <id> <id> …`. Wrong → include in
      the `assign` payload with new labels.
-   - **A run must end with zero uncategorized skills.** After step 3, if the
-     rebuilt graph still reports uncategorized > 0, something was missed — go
-     back and assign it.
+   - **A run must end with zero uncategorized skills.** If the last `catalog:`
+     line still reports uncategorized > 0, something was missed — go back and
+     assign it.
    - **Everything is scope-local.** All artifacts and curated state live in
      `./.claude/skill-atlas/` of the current directory (auto-created on first
      build); different directories are independent worlds with independent
@@ -58,15 +64,15 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
      categorized — plugins, user skills, and this directory's own project
      skills alike.
 
-3. Rerun `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_graph.py"`, then
-   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"`.
+3. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"`.
 
 4. Report: the summary line per view (skills / enabled / files / edges /
    uncategorized / stale); every dangling or broken-reference finding by name
    (these are real defects); what categorization did this run — newly assigned
    (id → categories), stale confirmed vs moved, any category you added; and the
-   atlas path (`./.claude/skill-atlas/atlas.html`). The first time the
-   atlas dir appears in a repo, suggest gitignoring the DERIVED files only
-   (`graph.json`, `atlas.html`, `catalog/`, `graph.dirty`, `debug.log`) —
-   `.claude/skill-atlas/categories.json` is this project's curated
-   categorization and belongs in version control.
+   atlas path (`./.claude/skill-atlas/atlas.html`). The first build in a repo
+   drops a `.gitignore` inside `.claude/skill-atlas/` covering the derived
+   files — commit it together with `categories.json` (this project's curated
+   categorization) and `config.json`. Caveat: a repo that ignores `.claude/`
+   wholesale swallows that nested file; it needs negation rules before
+   `categories.json` can be committed.

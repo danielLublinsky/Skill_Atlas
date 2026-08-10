@@ -133,6 +133,109 @@ class TestValidation(unittest.TestCase):
             helpers.searchable_config("beta")), [])
 
 
+class TestDerivedRefresh(unittest.TestCase):
+    """Every state-changing categorize write refreshes graph.json and the
+    catalog shards itself — the flow needs no second build afterwards."""
+
+    def test_bootstrap_writes_categories_once(self):
+        # One validating write, in-process so the call can be counted. A
+        # failure can never leave a frozen taxonomy with zero assignments.
+        import contextlib
+        import io
+        from unittest import mock
+        import categorize
+        with helpers.EnvSandbox(copy_fixtures=True):
+            _build_global()
+            neutral = str(Path(os.environ["SKILL_ATLAS_CLAUDE_DIR"]).parent)
+            payload = json.dumps({"taxonomy": helpers.TAXONOMY,
+                                  "assignments": helpers.ASSIGNED_ALL})
+            real = atlas_categories.write_categories
+            with mock.patch.object(atlas_categories, "write_categories",
+                                   side_effect=real) as spy, \
+                 mock.patch.object(sys, "stdin", io.StringIO(payload)), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                code = categorize.main(["--cwd", neutral, "bootstrap"])
+            self.assertEqual(code, 0)
+            self.assertEqual(spy.call_count, 1)
+
+    def test_each_write_refreshes_graph_and_shards(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            _build_global()
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
+            graph_file = atlas_paths.graph_path()
+
+            proc = _cli("assign",
+                        stdin_text=json.dumps({"assignments": {"beta:y": ["eng"]}}))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("catalog:", proc.stdout)
+            graph = json.loads(graph_file.read_text())
+            self.assertEqual(graph["taxonomy"], helpers.TAXONOMY)
+            node = next(n for n in graph["nodes"] if n["id"] == "beta:y")
+            self.assertEqual(node["categories"], ["eng"])
+
+            proc = _cli("add-category", "misc", "everything else")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            graph = json.loads(graph_file.read_text())
+            self.assertIn("misc", [e["name"] for e in graph["taxonomy"]])
+            self.assertTrue((atlas_paths.catalog_dir() / "misc.md").is_file())
+            self.assertIn("misc(0)",
+                          atlas_paths.catalog_index_path().read_text())
+
+            obj = _read_categories()
+            obj["assignments"]["alpha:one"]["desc_hash"] = \
+                atlas_categories.desc_hash("something else entirely")
+            helpers.write_categories(sandbox, obj)
+            proc = _cli("confirm", "alpha:one")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            graph = json.loads(graph_file.read_text())
+            node = next(n for n in graph["nodes"] if n["id"] == "alpha:one")
+            self.assertFalse(node["category_stale"])
+            self.assertEqual(graph["stats"]["stale_categories"], 0)
+
+            obj = _read_categories()
+            obj["taxonomy"].append({"name": "extra", "description": "imported"})
+            path = sandbox.tmp / "edited.json"
+            path.write_text(json.dumps(obj))
+            proc = _cli("import", str(path))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            graph = json.loads(graph_file.read_text())
+            self.assertIn("extra", [e["name"] for e in graph["taxonomy"]])
+            self.assertTrue((atlas_paths.catalog_dir() / "extra.md").is_file())
+
+    def test_refresh_preserves_dirty_flag(self):
+        # The refresh is not a re-discovery: clearing graph.dirty could
+        # swallow a concurrent skill edit the flag is reporting.
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            _build_global()
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
+            atlas_paths.dirty_path().touch()
+            proc = _cli("assign",
+                        stdin_text=json.dumps({"assignments": {"beta:y": ["eng"]}}))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertTrue(atlas_paths.dirty_path().exists())
+
+    def test_status_includes_skills_only_when_needed(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            _build_global()
+            status = json.loads(_cli("status").stdout)
+            self.assertIn("skills", status)          # unbootstrapped: automatic
+            helpers.write_categories(sandbox, helpers.approved_categories(sandbox))
+            status = json.loads(_cli("status").stdout)
+            self.assertNotIn("skills", status)       # bootstrapped: light
+            status = json.loads(_cli("status", "--full").stdout)
+            self.assertIn("skills", status)          # --full still forces it
+
+    def test_config_write_does_not_refresh_graph(self):
+        # config changes tier state whose truth also lives in settings —
+        # only a real rebuild may re-annotate it (edit-searchable's flow).
+        with helpers.EnvSandbox(copy_fixtures=True):
+            _build_global()
+            before = atlas_paths.graph_path().stat().st_mtime_ns
+            proc = _cli("config", "--add-searchable", "beta")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(atlas_paths.graph_path().stat().st_mtime_ns, before)
+
+
 class TestCLI(unittest.TestCase):
     def _bootstrap_payload(self, assigned=None):
         return json.dumps({"taxonomy": helpers.TAXONOMY,

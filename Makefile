@@ -27,11 +27,11 @@ m4-check:
 	@echo "M4 (auto-update) manual check:"
 	@echo "  1. claude plugin marketplace add $(CURDIR)"
 	@echo "  2. claude plugin install skill-atlas@skill-atlas"
-	@echo "  3. Note 'generated_at' in \$$SKILL_ATLAS_HOME/graph.json (default ~/.claude/skill-atlas/)"
+	@echo "  3. Note 'generated_at' in ./.claude/skill-atlas/graph.json (in the directory you run in)"
 	@echo "  4. Toggle any entry in ~/.claude/settings.json enabledPlugins"
 	@echo "  5. Start a new Claude Code session, then re-check graph.json:"
 	@echo "     generated_at advanced and the toggled plugin's nodes flipped 'enabled'"
-	@echo "  6. In-session: edit any SKILL.md -> \$$SKILL_ATLAS_HOME/graph.dirty appears;"
+	@echo "  6. In-session: edit any SKILL.md -> ./.claude/skill-atlas/graph.dirty appears;"
 	@echo "     next SessionStart consumes it and rebuilds. Toggle the plugin back."
 
 # Phase 2 live checks that need a real session — this just prints them.

@@ -23,16 +23,17 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" status   # categorization 
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render.py"        # → atlas.html
 ```
 
-Full flow: build → `categorize.py status` → categorize (below) → rebuild →
-render → report. Everything is **fully project-local**: all artifacts and
-curated state live in `./.claude/skill-atlas/` of the directory you run in
-(auto-created on first build — any directory becomes an atlas scope by
-running this), covering the machine's plugins + user skills + this
-directory's own `.claude/skills/`. Different directories are independent
-worlds with independent taxonomies. Suggest gitignoring the derived files
-there (`graph.json`, `atlas.html`, `catalog/`, `graph.dirty`, `debug.log`)
-but NOT `categories.json` — the curated categorization belongs in version
-control.
+Full flow: build → `categorize.py status` → categorize (below; each write
+refreshes graph + catalog itself) → render → report. Everything is **fully
+project-local**: all artifacts and curated state live in
+`./.claude/skill-atlas/` of the directory you run in (auto-created on first
+build — any directory becomes an atlas scope by running this), covering the
+machine's plugins + user skills + this directory's own `.claude/skills/`.
+Different directories are independent worlds with independent taxonomies.
+The first build drops a `.gitignore` inside the atlas dir covering the
+derived files (`graph.json`, `atlas.html`, `catalog/`, `graph.dirty`,
+`debug.log`) — commit it together with `categories.json`: the curated
+categorization belongs in version control.
 
 ## Categorization
 
@@ -40,14 +41,19 @@ All catalog writes go through `categorize.py` — never edit categories.json
 free-hand. Exit 3 means the payload was rejected: stderr names every
 violation; fix and retry.
 
-- **`bootstrapped: false`** → bootstrap autonomously, no approval step. Read
-  `status --full` (every id + description), draft 8–12 categories with
-  one-line descriptions (user-intent task shapes; name the boundary between
-  confusable categories; a product earns a category only when it dominates;
-  never enumerate product words — the build derives token lists from
-  membership), assign EVERY skill (ordered list, first = display home; the
-  CLI rejects incomplete coverage — if nothing fits, the taxonomy is missing
-  a category, so create it), and pipe
+Every successful `bootstrap` / `assign` / `confirm` / `add-category` call
+refreshes graph.json and `catalog/` itself and prints a `catalog:` summary
+line — no rebuild needed afterwards. If a call warns the derived refresh
+failed, run `build_graph.py` once before rendering.
+
+- **`bootstrapped: false`** → bootstrap autonomously, no approval step. The
+  status output already lists every skill's id + description; draft 8–12
+  categories with one-line descriptions (user-intent task shapes; name the
+  boundary between confusable categories; a product earns a category only
+  when it dominates; never enumerate product words — the build derives
+  token lists from membership), assign EVERY skill (ordered list, first =
+  display home; the CLI rejects incomplete coverage — if nothing fits, the
+  taxonomy is missing a category, so create it), and pipe
   `{"taxonomy": [...], "assignments": {id: [labels]}}` into
   `categorize.py bootstrap` via heredoc.
 - **`bootstrapped: true`** → the taxonomy is frozen. Batch-assign the
@@ -72,7 +78,7 @@ violation; fix and retry.
 - `2` — build failed. If stderr names categories.json/config.json
   violations, that is curated state failing loud: report the violations,
   offer to fix the file or `categorize.py import <path>` a corrected one.
-  Otherwise check stderr and `~/.claude/skill-atlas/debug.log`.
+  Otherwise check stderr and `./.claude/skill-atlas/debug.log`.
 
 ## Contract
 
