@@ -64,7 +64,7 @@ Disabling fixes the cost and loses the skill. So Skill Atlas adds a tier in betw
 | Tier | In context? | Findable? | Cost / session |
 | --- | --- | --- | --- |
 | 🟢 **enabled** | yes | natively | ~48 tokens each |
-| 🔵 **searchable** | **no** | via `skill-search` | **0** |
+| 🟣 **searchable** | **no** | via `skill-search` | **0** |
 | ⚫ **disabled** | no | no | 0 |
 
 A **searchable** skill is dormant — its description never enters your context, but
@@ -75,15 +75,41 @@ it stays discoverable on demand. All that advertises the whole dormant tier is o
 
 ```mermaid
 flowchart LR
-    A["task"] --> B["📇 _index.md<br/><i>~10 lines, one per category</i>"]
-    B -->|pick ONE category| C["📄 category.md<br/><i>one shard</i>"]
-    C --> D["🟢 enabled<br/><i>invoke natively</i>"]
-    C --> E["🔵 searchable<br/><i>read its path,<br/>follow as instructions</i>"]
+    A(["🧭 a task arrives<br/><i>“resolve this merge conflict”</i>"])
+
+    subgraph R1["1️⃣ read the index · ~1k tok"]
+        I["<b>_index.md</b> — 14 lines<br/><i>name · count · what it covers · member tokens</i>"]
+    end
+
+    subgraph R2["2️⃣ read one shard · ~0.5k tok"]
+        S["<b>version-control.md</b><br/>using-git-worktrees<br/>resolving-merge-conflicts ← hit"]
+    end
+
+    X["the other 13 shards<br/><i>~6.8k tok · never opened</i>"]
+
+    A --> I
+    I -- "pick ONE category" --> S
+    I -. skipped .-> X
+    S --> E["🟢 <b>enabled</b><br/><i>invoke natively</i>"]
+    S --> F["🟣 <b>searchable</b><br/><i>read its path,<br/>follow as instructions</i>"]
+
+    classDef plain fill:transparent,stroke:#8a8578,stroke-width:1.5px
+    classDef hit fill:#1baf7a26,stroke:#1baf7a,stroke-width:2px
+    classDef dormant fill:#8a5cd626,stroke:#8a5cd6,stroke-width:2px
+    classDef muted fill:transparent,stroke:#8a8578,stroke-width:1px,stroke-dasharray:4 3
+    class A,I,S plain
+    class E hit
+    class F dormant
+    class X muted
+    style R1 fill:#3987e514,stroke:#3987e5,stroke-width:1.5px
+    style R2 fill:#3987e514,stroke:#3987e5,stroke-width:1.5px
 ```
 
-Counts overlap on purpose — the pick doesn't have to land on *the* right bucket,
-only *a* right one. Tier-off skills are excluded when shards are written, so a
-disabled plugin can never return through a side door.
+**Two reads, ~1.5k tokens — against the ~8.3k the flat catalog would cost**, and
+paid only when a search actually happens. Counts overlap on purpose, so the pick
+doesn't have to land on *the* right bucket, only *a* right one. Tier-off skills are
+excluded when shards are written, so a disabled plugin can never return through a
+side door.
 
 **The model categorizes once.** The first run drafts 8–12 categories named for
 *user-intent task shapes*, not products, then freezes the taxonomy. Later runs only
