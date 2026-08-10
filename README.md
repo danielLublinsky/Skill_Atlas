@@ -1,101 +1,20 @@
+<div align="center">
+
+<img src="assets/logo.svg" width="76" alt="Skill Atlas">
+
 # Skill Atlas
 
-A Claude Code plugin that makes the skills you rarely use cost nothing —
-and still lets the model find them, by **searching a graph of your
-collection instead of preloading it**.
+**A third tier for Claude Code skills — dormant, zero tokens, still findable.**
 
-## 1. The problem, and the third tier
+Search a graph of your collection instead of preloading it.
 
-Claude Code injects every enabled skill's description into every session:
-roughly 48 tokens each, whether you use it or not. At 100+ skills across
-a pile of plugins that's thousands of tokens per session, and
-near-duplicate skills quietly compete for the model's attention.
+</div>
 
-Disabling a skill fixes the cost and loses the skill. So Skill Atlas adds
-a tier in between:
+![The atlas, scope view](assets/atlas-scope.png)
 
-| Tier | Description in context? | Findable? | Cost per session |
-| --- | --- | --- | --- |
-| **enabled** | yes | natively | ~48 tokens each |
-| **searchable** | no | via `skill-search` | 0 |
-| **disabled** | no | no | 0 |
+---
 
-A **searchable** skill is dormant — its description never enters your
-context — but it stays discoverable on demand. All that advertises the
-dormant tier is a ~50-token line injected at session start.
-
-## 2. Categorization, and the two-read search
-
-Discovery is token-efficient because the catalog is **hierarchical**, not
-flat. Everything derives from the graph:
-
-**Categorization happens once, by the model.** On the first `/skill-atlas`
-run it reads every skill description and drafts 8–12 categories named for
-*user-intent task shapes*, not products — then assigns every skill an
-ordered list of labels (the first is its display home) and **freezes the
-taxonomy**. Later runs only file new skills into it, add a category when
-genuinely nothing fits, and re-confirm entries whose description changed
-(each assignment carries a hash of the description it was made against —
-edit the skill, and it resurfaces as stale). Categorization is
-tier-blind: every registered skill gets filed whatever its tier.
-
-**The build turns that into a two-level catalog.** `catalog/_index.md` is
-one line per category — `name(count) — description — member tokens` —
-where the token list is derived from membership, never curated, so it
-can't drift. Then one shard per category, each entry an id, a tier tag,
-the description, and a path.
-
-**Search reads at most two files.** `skill-search` — the one skill that
-stays always-on — reads the ~10-line index, picks a single category, and
-reads that one shard. Never the whole catalog. Counts overlap across
-categories on purpose: the pick doesn't have to land on *the* right
-bucket, only *a* right one. An **[enabled]** hit gets invoked natively; a
-**[searchable]** hit is read from its path and followed as instructions.
-Tier-off skills are excluded when shards are written, so a disabled
-plugin can never return through a side door.
-
-## 3. The graph, and what it knows about your skills
-
-Discovery is **manifest-driven** — `installed_plugins.json` → each
-`plugin.json` → settings — so marketplace catalogues, stale cached plugin
-versions, and deprecated trees never pollute the picture. (The naive
-"every directory with a SKILL.md" count can be reported alongside for
-comparison — `build_graph.py --naive-count` — and over-counts by about
-60% on a real machine.)
-
-Skills are nodes. The edges are the interesting part:
-
-- **references** — a skill pointing at its own bundled files (markdown
-  links, plus bare `references/`, `scripts/`, `assets/` paths). Flagged
-  **broken** when the file isn't there.
-- **mentions** — a skill naming another skill. Deliberately strict: only
-  backticked, `skills/<name>`, or unambiguous hyphenated names count, and
-  fenced code blocks are stripped first. Loose word-boundary matching
-  produced 91 edges on a 41-skill collection, almost all of them names
-  that happen to be ordinary English words.
-- **dangling** — a mention that can't be followed, tagged with why:
-  the target is `disabled`, `unregistered`, or `absent` entirely.
-
-From that you also get duplicate names (a mention ambiguous between two
-skills is attributed to neither), orphans with no edges at all, and an
-exit code you can gate CI on — `1` means at least one broken reference or
-dangling mention.
-
-`atlas.html` renders it as a self-contained page you open from `file://`,
-zero network requests, with two views:
-
-- **scope** — the structural picture. Skills coloured by origin
-  (user / project / plugin), outlined by state (enabled, disabled,
-  searchable), wired by references and mentions, with broken and dangling
-  edges called out in red and bundled files as leaf nodes. Filters for
-  hiding files or mentions, isolating dangling only, or surfacing
-  unregistered skills.
-- **categories** — the same skills as hub-and-spoke around their
-  category hubs. Solid edge to the home category, dashed to anything it's
-  also filed under, hub size tracking member count, stale labels marked.
-  Search `cat:<name>` to isolate one.
-
-## 4. Install and use
+## ⚡ Install
 
 ```bash
 git clone https://github.com/danielLublinsky/Skill_Atlas.git
@@ -103,26 +22,112 @@ claude plugin marketplace add ./Skill_Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 
-- **`/skill-atlas`** — build the graph, categorize what's new, render the
-  atlas. Run it once to set up; a SessionStart hook keeps it fresh after.
-- **`/skill-atlas:edit-searchable`** — move plugins in and out of the
-  searchable tier, interactively.
+Python 3 only — no dependencies, no network (d3 is vendored).
 
-A plugin is searchable only when **both** halves hold — Claude Code has
-it disabled, *and* this scope opted it in. `edit-searchable` does both;
-by hand it's `claude plugin disable <plugin>` plus `categorize.py config
---add-searchable <plugin>`. The unit is a plugin, not a single skill.
+## ▶️ Run
 
-All state is project-local, in `./.claude/skill-atlas/`. **Commit
-`categories.json`** — it's your curated taxonomy, and the one file that
-isn't a rebuildable cache. The first build drops a `.gitignore` inside
-the atlas dir covering the derived siblings (`graph.json`, `atlas.html`,
-`catalog/`, `graph.dirty`, `debug.log`); commit it along with
-`categories.json` (a repo that ignores `.claude/` wholesale needs
-negation rules first). Skill Atlas reads manifests and skill files only;
-it never opens `~/.claude/projects`, and it deliberately does not track
-usage.
+| Command | What it does |
+| --- | --- |
+| **`/skill-atlas`** | Build the graph, categorize what's new, render `atlas.html`. **Run this once to set up.** |
+| **`/skill-atlas:edit-searchable`** | Move plugins in and out of the searchable tier, interactively. |
+| *(automatic)* | A SessionStart hook keeps everything fresh after that. |
 
-Full spec and the reasoning behind every decision: [DESIGN.md](DESIGN.md)
-(graph and visualization) and [DESIGN-PHASE2.md](DESIGN-PHASE2.md)
-(categorization and search).
+Then open `./.claude/skill-atlas/atlas.html` in a browser, and ask for a task —
+`skill-search` finds the right dormant skill on its own.
+
+<details>
+<summary>Without the plugin (Makefile)</summary>
+
+```bash
+make build    # graph.json + catalog/ from your live manifests
+make render   # atlas.html
+make check    # CI gate: exit 1 on any broken reference or dangling mention
+make test     # unit suite against fixtures — never touches the real ~/.claude
+```
+
+</details>
+
+---
+
+## 🎯 The problem
+
+Claude Code injects **every** enabled skill's description into **every** session —
+~48 tokens each. At 100+ skills that's thousands of tokens you pay for constantly,
+and near-duplicates quietly compete for the model's attention.
+
+Disabling fixes the cost and loses the skill. So Skill Atlas adds a tier in between:
+
+| Tier | In context? | Findable? | Cost / session |
+| --- | --- | --- | --- |
+| 🟢 **enabled** | yes | natively | ~48 tokens each |
+| 🔵 **searchable** | **no** | via `skill-search` | **0** |
+| ⚫ **disabled** | no | no | 0 |
+
+A **searchable** skill is dormant — its description never enters your context, but
+it stays discoverable on demand. All that advertises the whole dormant tier is one
+~50-token line at session start.
+
+## 🔍 Search reads two files — never the catalog
+
+```mermaid
+flowchart LR
+    A["task"] --> B["📇 _index.md<br/><i>~10 lines, one per category</i>"]
+    B -->|pick ONE category| C["📄 category.md<br/><i>one shard</i>"]
+    C --> D["🟢 enabled<br/><i>invoke natively</i>"]
+    C --> E["🔵 searchable<br/><i>read its path,<br/>follow as instructions</i>"]
+```
+
+Counts overlap on purpose — the pick doesn't have to land on *the* right bucket,
+only *a* right one. Tier-off skills are excluded when shards are written, so a
+disabled plugin can never return through a side door.
+
+**The model categorizes once.** The first run drafts 8–12 categories named for
+*user-intent task shapes*, not products, then freezes the taxonomy. Later runs only
+file new skills and re-confirm the ones whose description changed — each assignment
+carries a hash of the description it was made against.
+
+## 🕸️ The graph
+
+![The atlas, category view](assets/atlas-categories.png)
+
+Discovery is **manifest-driven** — `installed_plugins.json` → each `plugin.json` →
+settings — so marketplace catalogues and stale cached versions never pollute the
+picture. (The naive "every directory with a SKILL.md" count over-counts by ~60% on a
+real machine: `build_graph.py --naive-count`.)
+
+Skills are nodes. The edges are the interesting part:
+
+| | Edge | Caught |
+| --- | --- | --- |
+| 🔗 | **references** — a skill → its own bundled files | **broken** when the file isn't there |
+| 💬 | **mentions** — a skill naming another skill | **dangling** when the target is `disabled`, `unregistered` or `absent` |
+
+Mention matching is deliberately strict — only backticked, `skills/<name>`, or
+unambiguous hyphenated names, code fences stripped first. Loose matching produced 91
+edges on a 41-skill collection, almost all of them ordinary English words. You also
+get duplicate names, orphans, and an exit code to gate CI on.
+
+`atlas.html` is self-contained and opens from `file://` with zero network requests:
+**scope** (origin, state, breakage in red) and **categories** (hub-and-spoke — solid
+edge to the home category, dashed to the rest; search `cat:<name>` to isolate).
+
+## 📦 State
+
+All project-local, in `./.claude/skill-atlas/`.
+
+> **Commit `categories.json`** — your curated taxonomy, and the one file that isn't a
+> rebuildable cache. The first build drops a `.gitignore` covering the derived
+> siblings; commit that too. (A repo that ignores `.claude/` wholesale needs negation
+> rules first.)
+
+A plugin is searchable only when **both** halves hold — Claude Code has it disabled,
+*and* this scope opted it in. `edit-searchable` does both. The unit is a plugin, not
+a single skill.
+
+Skill Atlas reads manifests and skill files only. It never opens `~/.claude/projects`,
+and it deliberately does not track usage.
+
+## 📚 Docs
+
+[**DESIGN.md**](DESIGN.md) — graph and visualization ·
+[**DESIGN-PHASE2.md**](DESIGN-PHASE2.md) — categorization and search
