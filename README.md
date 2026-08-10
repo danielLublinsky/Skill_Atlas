@@ -4,9 +4,13 @@
 
 # Skill Atlas
 
-**A third tier for Claude Code skills — dormant, zero tokens, still findable.**
+<h3>🔎 Query your whole skill collection at ~85% fewer tokens</h3>
 
+**A third tier for Claude Code skills — dormant, zero tokens, still findable.**
 Search a graph of your collection instead of preloading it.
+
+<sub>53 skills, 6 kept enabled: **2,544 → 338 tokens per session (−86.7%)**. The other
+47 cost nothing until asked for.</sub>
 
 </div>
 
