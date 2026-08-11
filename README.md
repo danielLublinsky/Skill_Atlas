@@ -161,5 +161,10 @@ and it deliberately does not track usage.
 
 ## 📚 Docs
 
+[**docs/**](docs/) — component guide, numbered 1–9: start at
+[overview](docs/1-overview.md), then jump to the component you're touching
+(discovery, graph build, categorization, catalog & search, rendering, hooks).
+
 [**DESIGN.md**](DESIGN.md) — graph and visualization ·
 [**DESIGN-PHASE2.md**](DESIGN-PHASE2.md) — categorization and search
+(the historical record: what was considered, what was dropped, and why)
