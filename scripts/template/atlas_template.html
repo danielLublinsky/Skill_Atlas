@@ -245,14 +245,16 @@
 
   svg text.nodelabel { fill: var(--text-primary); font-size: 10px;
     font-family: var(--mono); pointer-events: none; }
-  svg text.gutterlabel { fill: var(--text-muted); font-size: 9px;
+  /* the caption names the group it sits over — it is read before any node
+     label, so it is sized to be read at the fit zoom rather than squinted at */
+  svg text.gutterlabel { fill: var(--text-muted); font-size: 15px;
     font-family: var(--mono); font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.18em; }
   svg .dim { opacity: 0.14; }
   /* focused neighbourhood: the incident edges lift, they don't merely
      survive the dimming of everything else */
   svg line.hot { opacity: 1; stroke-width: 2.6px; }
-  svg line.hot:not(.broken) { stroke: var(--text-primary); }
+  svg line.hot { stroke: var(--text-primary); }
   /* a bundled file is a 4.5px dot — too small to read a size change, so it
      lights up instead: brighter body, a ring that wasn't there before */
   svg .filedot { transition: fill 120ms linear, stroke 120ms linear,
@@ -299,7 +301,7 @@
     <div id="filter-menu" class="menu-body">
       <label><input type="checkbox" id="t-files"> hide files</label>
       <label><input type="checkbox" id="t-mentions"> hide mentions</label>
-      <label><input type="checkbox" id="t-dangling"> dangling only</label>
+      <label><input type="checkbox" id="t-missing"> missing files only</label>
       <label><input type="checkbox" id="t-unregistered"> show unregistered</label>
       <!-- reachability, not structure: it means the same thing in both views,
            so it is ruled off from the scope-only boxes and stays live -->
@@ -389,7 +391,7 @@ const nodeTotal = allNodes.length;
 const ctl = {
   files: document.getElementById("t-files"),
   mentions: document.getElementById("t-mentions"),
-  dangling: document.getElementById("t-dangling"),
+  missing: document.getElementById("t-missing"),
   unregistered: document.getElementById("t-unregistered"),
   dormant: document.getElementById("t-dormant"),
   search: document.getElementById("search"),
@@ -405,7 +407,7 @@ const isDormant = n => n.type === "skill" && !n.unregDisplay && !n.dangling &&
    (hubs + membership) rather than subtracting from the scope view */
 let viewMode = "scope";                       /* "scope" | "category" */
 const isCategoryView = () => viewMode === "category";
-const structuralToggles = [ctl.files, ctl.mentions, ctl.dangling, ctl.unregistered];
+const structuralToggles = [ctl.files, ctl.mentions, ctl.missing, ctl.unregistered];
 (function tabs() {
   const bar = document.getElementById("tabs");
   bar.addEventListener("click", ev => {
@@ -535,13 +537,11 @@ function renderLegend() {
     <div class="row"><span class="swatch" style="background:color-mix(in srgb, var(--scope-plugin) 22%, var(--surface-1));border:1.5px solid var(--scope-plugin)"></span>enabled</div>
     <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px solid var(--scope-plugin)"></span>disabled</div>
     <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
-    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px dashed var(--text-muted)"></span>dangling · unregistered</div>
+    <div class="row"><span class="swatch" style="background:var(--surface-1);border:1.5px dashed var(--text-muted)"></span>not registered</div>
     <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>
     <h2>edges</h2>
     <div class="row"><span class="edge-sample"></span>references</div>
     <div class="row"><span class="edge-sample" style="border-top-style:dashed"></span>mentions</div>
-    <div class="row"><span class="edge-sample" style="border-top-color:var(--critical)"></span>broken reference</div>
-    <div class="row"><span class="edge-sample" style="border-top-style:dotted;border-top-color:var(--critical)"></span>dangling mention</div>
     <h2>files</h2>
     <div class="row"><span class="swatch circle" style="background:var(--text-muted)"></span>bundled file</div>
     <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:1.5px solid var(--critical)"></span>file missing on disk</div>
@@ -560,8 +560,12 @@ renderLegend();
   parts.push(`${s.skills} skills (${s.enabled} enabled) · ${s.files} files · ${s.edges} edges`);
   if (s.duplicate_names && s.duplicate_names.length)
     parts.push(`<span class="warn">duplicate names: ${s.duplicate_names.join(", ")}</span>`);
-  if (s.dangling || s.broken_refs)
-    parts.push(`<span class="warn">${s.dangling} dangling · ${s.broken_refs} broken refs</span>`);
+  /* the one defect the graph can actually have: a bundled file a SKILL.md
+     points at that isn't on disk. A mention of a disabled or uninstalled skill
+     is a state, not a fault, and no longer reports itself as one. */
+  const missingFiles = allNodes.filter(n => n.type === "file" && n.exists === false).length;
+  if (missingFiles)
+    parts.push(`<span class="warn">${missingFiles} missing file${missingFiles === 1 ? "" : "s"}</span>`);
   /* TODO states, not defects — plain text, no warn class (DESIGN-PHASE2 §3.3) */
   if (s.uncategorized || s.stale_categories) {
     const todo = [];
@@ -602,6 +606,18 @@ function buildTable() {
   draw();
 }
 
+/* One skill naming another is one relation, drawn one way. The build splits it
+   into "mentions" and "dangling" by whether the target happens to be reachable
+   — but a mention of a disabled skill points at a real node sitting right
+   there in the graph, and that node already draws itself hollow. Styling the
+   edge for it too put the loudest colour on the page on the commonest state in
+   a library that is mostly dormant by design. The only genuine defect is a
+   bundled file that isn't on disk, and the file node carries that. */
+const isMention = d => d.kind === "mentions" || d.kind === "dangling";
+/* a references edge is "broken" exactly when its target file is missing, so
+   the file node is the single place that fact gets reported */
+const isMissingFile = e => e.kind === "references" && !!e.broken;
+
 /* ---------------------------- graph rendering ---------------------------- */
 const svg = d3.select("#canvas");
 const viewport = svg.append("g");
@@ -614,7 +630,7 @@ let sim = null;
 function visibleModel() {
   const hideFiles = ctl.files.checked;
   const hideMentions = ctl.mentions.checked;
-  const danglingOnly = ctl.dangling.checked;
+  const missingOnly = ctl.missing.checked;
   const showUnreg = ctl.unregistered.checked;
   const hideDormant = ctl.dormant.checked;
   const active = activeGroups();
@@ -652,7 +668,7 @@ function visibleModel() {
   let edges = allEdges.filter(e => {
     if (hideFiles && e.kind === "references") return false;
     if (hideMentions && e.kind === "mentions") return false;
-    if (danglingOnly && !(e.kind === "dangling" || e.broken)) return false;
+    if (missingOnly && !isMissingFile(e)) return false;
     if (!primary.has(e.source)) return false;
     const target = nodeById.get(e.target);
     if (target && target.type === "skill" && !target.dangling && !primary.has(e.target))
@@ -666,7 +682,7 @@ function visibleModel() {
     if (n.type === "file") return !hideFiles && keep.has(n.id);
     if (n.dangling) return keep.has(n.id);
     if (!primary.has(n.id)) return false;
-    if (danglingOnly) return keep.has(n.id);
+    if (missingOnly) return keep.has(n.id);
     return true;
   });
   const present = new Set(nodes.map(n => n.id));
@@ -707,11 +723,30 @@ function drawGraph() {
     : n.type === "cat" ? n.name : skillKey(n);
   const groupNames = [...new Set(nodes.map(clusterKey))].sort();
   const centers = new Map();
-  const R = Math.min(width, height) * Math.min(0.62, 0.3 + groupNames.length * 0.045);
-  groupNames.forEach((g, i) => {
-    const a = (i / groupNames.length) * 2 * Math.PI - Math.PI / 2;
-    centers.set(g, groupNames.length === 1 ? [width / 2, height / 2]
-      : [width / 2 + Math.cos(a) * R * 1.25, height / 2 + Math.sin(a) * R * 0.8]);
+  /* how far apart the cluster centres sit. The growth rate was never the
+     problem — the cap was. At 0.62 the scope-view ring saturated by the
+     seventh group, so every group added after that was packed onto a circle
+     of the same size, and the clusters closed on each other exactly as the
+     library grew big enough to need the separation. Same slope, cap lifted to
+     where it only guards against a pathological plugin count zooming the fit
+     into nothing. */
+  /* built-ins ship with Claude Code itself — the one group present in every
+     install whatever else is enabled — and a ring layout always leaves a hole
+     in the middle. So they take the centre and everything else distributes
+     around them. Exactly one group can hold it; a second would just overlap. */
+  const centerGroup = (!catMode && groupNames.includes("builtin")) ? "builtin" : null;
+  const ringNames = groupNames.filter(g => g !== centerGroup);
+  const spread = catMode ? Math.min(0.62, 0.3 + ringNames.length * 0.045)
+    : Math.min(1.15, 0.34 + ringNames.length * 0.055);
+  const R = Math.min(width, height) * spread;
+  /* the stage is widescreen and the old 1.25/0.8 ellipse left some horizontal
+     room unspent; scope view leans a little wider to use it */
+  const ex = catMode ? 1.25 : 1.4, ey = catMode ? 0.8 : 0.8;
+  if (centerGroup) centers.set(centerGroup, [width / 2, height / 2]);
+  ringNames.forEach((g, i) => {
+    const a = (i / ringNames.length) * 2 * Math.PI - Math.PI / 2;
+    centers.set(g, (ringNames.length === 1 && !centerGroup) ? [width / 2, height / 2]
+      : [width / 2 + Math.cos(a) * R * ex, height / 2 + Math.sin(a) * R * ey]);
   });
   const centerOf = n => centers.get(clusterKey(n)) || [width / 2, height / 2];
 
@@ -729,6 +764,10 @@ function drawGraph() {
   /* orphans and unregistered skills float free as ordinary nodes (amended —
      no gutter): with no edges of their own, the cluster forces settle them
      beside the plugin they shipped in, which is the fact worth seeing */
+  /* how hard a group holds its own members against the pull of their edges.
+     Category view keeps the old setting: there the member edges ARE the
+     structure, and they run to a hub sitting on the cluster centre anyway. */
+  const homePull = catMode ? 0.11 : 0.34;
   sim = d3.forceSimulation(nodes)
     .randomSource(rng)
     .force("link", d3.forceLink(edges.map(e => Object.assign({}, e)))
@@ -737,12 +776,27 @@ function drawGraph() {
          loosely to the rest: a long, weak secondary link lets it sit beside
          the category that owns it instead of floating at the midpoint
          between equals. Single-category skills are unaffected. */
-      .distance(e => e.kind === "references" ? 85
-        : e.kind === "member" ? (e.home ? 110 : 170) : 170)
-      .strength(e => e.kind === "member" && !e.home ? 0.22 : 0.5))
+      /* longer rest lengths across the board: the springs now hold nodes apart
+         at a readable gap instead of packing them until only collide keeps
+         them off each other */
+      .distance(e => e.kind === "references" ? 135
+        : e.kind === "member" ? (e.home ? 150 : 230) : 250)
+      /* a mention used to pull as hard as a bundle link (both 0.5), so any
+         skill naming something in another plugin got hauled out of its own
+         neighbourhood and the groups smeared into each other. A reference
+         binds a skill to files it actually ships, and has to stay firm; a
+         mention is informational, so it now bends the layout instead of
+         driving it. */
+      .strength(e => e.kind === "member" ? (e.home ? 0.5 : 0.22)
+        : e.kind === "references" ? 0.5
+        : 0.1))
     .force("charge", d3.forceManyBody().strength(-320).distanceMax(460))
-    .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : 0.11))
-    .force("y", d3.forceY(d => centerOf(d)[1]).strength(d => d.type === "file" ? 0.05 : 0.11))
+    /* the other half of the same trade: the group's hold on its own members.
+       Files keep the weak setting — a bundle orbits the skill that ships it
+       through the reference link, and pulling files to the cluster centre
+       independently would collapse those sunbursts into the middle. */
+    .force("x", d3.forceX(d => centerOf(d)[0]).strength(d => d.type === "file" ? 0.05 : homePull))
+    .force("y", d3.forceY(d => centerOf(d)[1]).strength(d => d.type === "file" ? 0.05 : homePull))
     .force("collide", d3.forceCollide(d => d.type === "file" ? 11
       : d.type === "cat" ? d._w / 2 + 26 : d._w * 0.42 + 14).iterations(2))
     .stop();
@@ -769,23 +823,21 @@ function drawGraph() {
   const edgeSel = viewport.append("g").selectAll("line").data(simEdges).join("line")
     .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
     .attr("x2", d => d.target.x).attr("y2", d => d.target.y)
-    .classed("broken", d => !!(d.broken || d.kind === "dangling"))
-    .attr("stroke", d => (d.broken || d.kind === "dangling") ? "var(--critical)" : "var(--baseline)")
+    .attr("stroke", "var(--baseline)")
     /* membership carries the whole category view the way references carry the
        scope view, so it is drawn at the same weight — at the old 1.2/0.5 it
        read as background texture next to a scope-view reference line. The
        secondary tie stays lighter than the home tie, but as a legible dash
        rather than a dotted whisper */
     .attr("stroke-width", d => d.kind === "member" ? (d.home ? 1.5 : 1.4)
-      : d.kind === "mentions" ? 1.9 : 1.4)
+      : isMention(d) ? 1.9 : 1.4)
     /* mentions read as a firm dash rather than a faint dotted whisper: one
        skill naming another is a real relation, and at the old weight it
        disappeared against the reference lines */
     .attr("stroke-dasharray", d => d.kind === "member" ? (d.home ? null : "4,3")
-      : d.kind === "mentions" ? "6,3"
-      : (d.kind === "dangling" ? "2,4" : null))
+      : isMention(d) ? "6,3" : null)
     .attr("opacity", d => d.kind === "member" ? (d.home ? 0.8 : 0.62)
-      : d.kind === "mentions" ? 0.95 : 0.75);
+      : isMention(d) ? 0.95 : 0.75);
 
   /* faint caption over each cluster, behind the edges — redundant in
      category view, where the hubs carry their own labels */
@@ -795,7 +847,7 @@ function drawGraph() {
     const members = nodes.filter(n => clusterKey(n) === g && n.type === "skill");
     if (!members.length) return;
     const mx = members.reduce((s, n) => s + n.x, 0) / members.length;
-    const my = Math.min(...members.map(n => n.y)) - 36;
+    const my = Math.min(...members.map(n => n.y)) - 46;   /* clearance for the bigger caption */
     captionLayer.append("text").attr("class", "gutterlabel")
       .attr("text-anchor", "middle").attr("x", mx).attr("y", my)
       .attr("opacity", 0.75).text(groupLabel(g));
