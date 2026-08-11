@@ -1181,6 +1181,12 @@ function drawGraph() {
     edgeSel.classed("dim", d => !incident(d)).classed("hot", incident);
   }
   function unfocus() {
+    /* a non-empty query is a standing filter, not a passing highlight. Every
+       release of a focus — mouseleave, a click on the background — used to
+       clear the picture back to everything, so the text stayed in the box
+       while the filter it described silently stopped applying. It falls back
+       to the query now, and only an empty box restores the full graph. */
+    if (ctl.search.value.trim()) { applySearch(); return; }
     nodeSel.classed("dim", false).classed("lit", false);
     edgeSel.classed("dim", false).classed("hot", false);
   }
