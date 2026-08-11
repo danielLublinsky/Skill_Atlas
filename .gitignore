@@ -7,6 +7,11 @@
 !.claude/skill-atlas/.gitignore
 !.claude/skill-atlas/categories.json
 !.claude/skill-atlas/config.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/search-skill-test/
+.claude/skills/search-skill-test/*
+!.claude/skills/search-skill-test/SKILL.md
 
 # Python
 __pycache__/
