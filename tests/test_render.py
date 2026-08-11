@@ -1,4 +1,5 @@
 import json
+import pathlib
 import re
 import unittest
 
@@ -23,15 +24,77 @@ def _data_block(html):
     return json.loads(match.group(1).replace("<\\/", "</"))
 
 
+def _docs_block(html):
+    match = re.search(
+        r'<script id="atlas-docs" type="application/json">(.*?)</script>',
+        html, re.S)
+    return json.loads(match.group(1).replace("<\\/", "</"))
+
+
+def _markup_only(html):
+    """The page with its JSON payloads removed.
+
+    Both payloads are inert text to the parser, and one of them is the verbatim
+    contents of every SKILL.md in the library — markdown that can legitimately
+    contain "<link", "@import" or "url(http" inside a fenced example. Scanning
+    it for external references reports on what the docs talk about rather than
+    on what the page loads.
+    """
+    return re.sub(
+        r'<script id="atlas-(?:data|docs)" type="application/json">.*?</script>',
+        "", html, flags=re.S)
+
+
 class TestRender(unittest.TestCase):
     def test_self_contained_no_external_references(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             html = _render(sandbox)
-            self.assertNotIn("<script src=", html)
-            self.assertNotIn("<link", html)
-            self.assertNotIn("@import", html)
-            self.assertNotIn("url(http", html)
+            markup = _markup_only(html)
+            self.assertNotIn("<script src=", markup)
+            self.assertNotIn("@import", markup)
+            self.assertNotIn("url(http", markup)
+            # <link> is allowed only as a data: URI — that is the inlined
+            # favicon, which costs no request. Anything else is a fetch.
+            for tag in re.findall(r"<link\b[^>]*>", markup):
+                self.assertRegex(tag, r'href=["\']data:',
+                                 f"external <link> in atlas.html: {tag}")
             self.assertIn("d3js.org v7.9.0", html)  # vendored D3 is actually inlined
+
+    def test_docs_embedded_for_files_on_disk(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            html = _render(sandbox)
+            docs = _docs_block(html)
+            data = _data_block(html)
+            paths = {n["path"] for n in data["graph"]["nodes"] if n.get("path")}
+            self.assertTrue(paths, "fixture graph has no node with a path")
+            present = {p for p in paths if pathlib.Path(p).is_file()}
+            self.assertTrue(present, "fixture graph has no readable file")
+            for path in present:
+                self.assertIn(path, docs)
+                self.assertEqual(docs[path],
+                                 pathlib.Path(path).read_text(encoding="utf-8"))
+            # a node pointing at a file that isn't on disk embeds nothing — the
+            # viewer says so rather than opening blank
+            self.assertTrue(paths - present,
+                            "fixture should include a broken reference")
+            for path in paths - present:
+                self.assertNotIn(path, docs)
+
+    def test_no_embed_docs_leaves_map_empty(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            graph, _ = build_graph.build(cwd=sandbox.project_dir)
+            atlas_io.atomic_write_json(atlas_paths.graph_path(), graph)
+            out = render.render(cwd=sandbox.project_dir, embed_docs=False)
+            self.assertEqual(_docs_block(out.read_text(encoding="utf-8")), {})
+
+    def test_script_terminator_escaped_in_docs(self):
+        """A doc containing "</script>" must not end the block it travels in."""
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            html = _render(sandbox)
+            match = re.search(
+                r'<script id="atlas-docs" type="application/json">(.*?)</script>',
+                html, re.S)
+            self.assertNotIn("</", match.group(1))
 
     def test_script_terminator_escaped_in_data(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:

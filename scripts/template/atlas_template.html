@@ -216,7 +216,18 @@
     overflow-wrap: break-word;
   }
   #tooltip.on { visibility: visible; }
-  #tooltip.pinned { border-color: var(--text-secondary); }
+  /* the panel ignores the mouse so it never eats a hover meant for the graph
+     underneath — except when pinned, which is the only state that puts a
+     control inside it */
+  #tooltip.pinned { border-color: var(--text-secondary); pointer-events: auto; }
+  #tooltip .tt-open {
+    display: block; width: 100%; margin-top: 7px; padding: 5px 10px;
+    border: 1px solid var(--text-secondary); border-radius: 2px;
+    background: var(--plane); color: var(--text-primary); cursor: pointer;
+    font: inherit; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  #tooltip .tt-open:hover { background: var(--surface-1); }
   #tooltip .tt-id { font-weight: 700; color: var(--text-primary); font-size: 13px; }
   #tooltip .tt-path { color: var(--text-muted); font-size: 11.5px; }
   #tooltip .tt-pin {
@@ -232,6 +243,83 @@
   }
   footer > span + span::before { content: "▸"; margin: 0 10px; color: var(--baseline); }
   footer .warn { color: var(--critical); font-weight: 700; }
+
+  /* ------------------------------ doc viewer ------------------------------ */
+  #docview {
+    width: min(880px, 92vw); max-height: 92vh; padding: 0;
+    border: 1px solid var(--baseline); border-radius: 2px;
+    outline: 1px solid var(--border); outline-offset: 2px;
+    background: var(--surface-1); color: var(--text-primary);
+    box-shadow: 0 4px 0 var(--border);
+    font: 13px/1.62 var(--mono);
+    /* the dialog never scrolls — only .doc-body inside it does. Without this
+       a tall document gives the popup a second scrollbar beside the one the
+       body already has, and the header scrolls away with the text. */
+    overflow: hidden;
+  }
+  /* only while open: a bare `display:flex` would override the UA rule that
+     keeps a closed dialog hidden */
+  #docview[open] { display: flex; flex-direction: column; }
+  #docview::backdrop { background: rgba(0,0,0,0.55); }
+  .doc-head {
+    flex: none;
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 11px 14px; border-bottom: 1px solid var(--baseline);
+    background: var(--surface-1);
+  }
+  .doc-title { min-width: 0; }
+  .doc-id { font-weight: 700; font-size: 14px; letter-spacing: 0.03em; }
+  .doc-path { color: var(--text-muted); font-size: 11.5px; overflow-wrap: anywhere; }
+  .doc-actions { margin-left: auto; display: flex; gap: 7px; flex: none; }
+  .doc-actions button {
+    padding: 4px 12px; border: 1px solid var(--baseline); border-radius: 2px;
+    background: var(--plane); color: var(--text-secondary); cursor: pointer;
+    font: inherit; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .doc-actions button:hover { color: var(--text-primary); }
+  /* min-height:0 is what lets a flex child shrink below its content and scroll
+     — without it the body keeps its full height and pushes the dialog out */
+  .doc-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px 20px; }
+  .doc-body > :first-child { margin-top: 0; }
+  .doc-note { color: var(--text-muted); }
+  /* frontmatter is the metadata the atlas already reads off this file, so it
+     is shown as the block it is rather than folded into the prose */
+  .doc-body .md-fm {
+    white-space: pre-wrap; margin: 0 0 14px; padding: 9px 11px;
+    background: var(--plane); border-left: 3px solid var(--tier-searchable);
+    color: var(--text-secondary); font-size: 12px; overflow-x: auto;
+  }
+  .doc-body h1, .doc-body h2, .doc-body h3,
+  .doc-body h4, .doc-body h5, .doc-body h6 {
+    margin: 20px 0 7px; line-height: 1.3; letter-spacing: 0.02em;
+  }
+  .doc-body h1 { font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid var(--grid); }
+  .doc-body h2 { font-size: 15.5px; padding-bottom: 4px; border-bottom: 1px solid var(--grid); }
+  .doc-body h3 { font-size: 14px; }
+  .doc-body h4, .doc-body h5, .doc-body h6 { font-size: 13px; color: var(--text-secondary); }
+  .doc-body p, .doc-body ul, .doc-body ol, .doc-body blockquote { margin: 0 0 11px; }
+  .doc-body ul, .doc-body ol { padding-left: 22px; }
+  .doc-body li { margin: 2px 0; }
+  .doc-body blockquote {
+    padding: 2px 0 2px 12px; border-left: 3px solid var(--baseline);
+    color: var(--text-secondary);
+  }
+  .doc-body hr { border: 0; border-top: 1px solid var(--grid); margin: 16px 0; }
+  .doc-body a { color: var(--scope-user); overflow-wrap: anywhere; }
+  .doc-body code {
+    background: var(--plane); border: 1px solid var(--grid); border-radius: 2px;
+    padding: 0 4px; font-size: 12px;
+  }
+  .doc-body pre {
+    margin: 0 0 12px; padding: 10px 12px; overflow-x: auto;
+    background: var(--plane); border: 1px solid var(--grid); border-radius: 2px;
+  }
+  .doc-body pre code { background: none; border: 0; padding: 0; font-size: 12px; }
+  .doc-body .doc-rawtext {
+    white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px;
+    color: var(--text-secondary);
+  }
 
   #tableview { display: none; flex: 1; overflow: auto; padding: 14px; }
   #tableview table { border-collapse: collapse; width: 100%; background: var(--surface-1);
@@ -322,9 +410,30 @@
 </div>
 <div id="tableview"></div>
 
+<!-- the markdown viewer. <dialog> rather than a hand-rolled overlay: it brings
+     its own backdrop, ESC-to-close, focus trapping and inertness of the page
+     behind it, none of which is worth reimplementing -->
+<dialog id="docview" aria-label="skill document">
+  <div class="doc-head">
+    <div class="doc-title">
+      <div class="doc-id"></div>
+      <div class="doc-path"></div>
+    </div>
+    <div class="doc-actions">
+      <button type="button" id="doc-raw">raw</button>
+      <button type="button" id="doc-close">close</button>
+    </div>
+  </div>
+  <div class="doc-body"></div>
+</dialog>
+
 <footer id="footer"></footer>
 
 <script id="atlas-data" type="application/json">__DATA_JSON__</script>
+<!-- every SKILL.md and bundled file, keyed by path. Inert to the HTML parser
+     and only JSON.parsed when the first document is opened — most sessions
+     never open one, and this block is the larger half of the file. -->
+<script id="atlas-docs" type="application/json">__DOCS_JSON__</script>
 <script>/*__D3__*/</script>
 <script>
 "use strict";
@@ -618,6 +727,124 @@ const isMention = d => d.kind === "mentions" || d.kind === "dangling";
 /* a references edge is "broken" exactly when its target file is missing, so
    the file node is the single place that fact gets reported */
 const isMissingFile = e => e.kind === "references" && !!e.broken;
+
+/* ------------------------------ doc viewer ------------------------------ */
+const escHTML = s => String(s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+let DOCS = null;
+/* parsed on first open, never at load: this blob is the larger half of the
+   file and most sessions never open a document */
+function docFor(path) {
+  if (DOCS === null) {
+    try { DOCS = JSON.parse(document.getElementById("atlas-docs").textContent); }
+    catch (e) { DOCS = {}; }
+  }
+  return path ? DOCS[path] : undefined;
+}
+
+/* A deliberately small markdown renderer. Everything is escaped before any tag
+   is introduced, so a SKILL.md containing HTML renders as the text it is
+   instead of becoming part of this page. */
+function mdInline(s) {
+  /* code spans are lifted out first and put back last — otherwise `**` inside
+     a span gets read as emphasis and the sample stops being the sample */
+  const spans = [];
+  let t = escHTML(s).replace(/`([^`]+)`/g, (m, c) =>
+    " " + (spans.push(c) - 1) + " ");
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,
+        '<a href="$2" rel="noreferrer noopener">$1</a>')
+       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+       .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  return t.replace(/ (\d+) /g, (m, i) => `<code>${spans[i]}</code>`);
+}
+function mdToHTML(src) {
+  const lines = String(src).replace(/\r\n?/g, "\n").split("\n");
+  const out = [];
+  let i = 0, para = [], list = null;
+  const flushPara = () => {
+    if (para.length) { out.push(`<p>${mdInline(para.join(" "))}</p>`); para = []; }
+  };
+  const flushList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const openList = tag => {
+    if (list !== tag) { flushList(); out.push(`<${tag}>`); list = tag; }
+  };
+  if (lines[0] === "---") {                     /* YAML frontmatter */
+    const end = lines.indexOf("---", 1);
+    if (end > 0) {
+      out.push(`<div class="md-fm">${escHTML(lines.slice(1, end).join("\n"))}</div>`);
+      i = end + 1;
+    }
+  }
+  for (; i < lines.length; i++) {
+    const ln = lines[i];
+    if (/^\s*```/.test(ln)) {                   /* fenced code: verbatim */
+      flushPara(); flushList();
+      const buf = [];
+      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) buf.push(lines[i]);
+      out.push(`<pre><code>${escHTML(buf.join("\n"))}</code></pre>`);
+      continue;
+    }
+    const h = ln.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      flushPara(); flushList();
+      out.push(`<h${h[1].length}>${mdInline(h[2])}</h${h[1].length}>`);
+      continue;
+    }
+    if (/^\s*([-*_])\s*\1\s*\1[\s\-*_]*$/.test(ln)) {
+      flushPara(); flushList(); out.push("<hr>"); continue;
+    }
+    const ul = ln.match(/^\s*[-*+]\s+(.*)$/);
+    if (ul) { flushPara(); openList("ul"); out.push(`<li>${mdInline(ul[1])}</li>`); continue; }
+    const ol = ln.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ol) { flushPara(); openList("ol"); out.push(`<li>${mdInline(ol[1])}</li>`); continue; }
+    const bq = ln.match(/^>\s?(.*)$/);
+    if (bq) {
+      flushPara(); flushList();
+      out.push(`<blockquote>${mdInline(bq[1])}</blockquote>`);
+      continue;
+    }
+    if (!ln.trim()) { flushPara(); flushList(); continue; }
+    para.push(ln);
+  }
+  flushPara(); flushList();
+  return out.join("\n");
+}
+
+const docview = document.getElementById("docview");
+let docNode = null, docRaw = false;
+function paintDoc() {
+  if (!docNode) return;
+  docview.querySelector(".doc-id").textContent = docNode.id;
+  docview.querySelector(".doc-path").textContent = docNode.path || "";
+  const body = docview.querySelector(".doc-body");
+  const text = docFor(docNode.path);
+  if (text === undefined) {
+    /* embedding is best-effort — say which way it failed rather than opening
+       an empty panel */
+    body.innerHTML = `<p class="doc-note">No embedded copy of this file. It is ` +
+      `larger than the embed limit, was unreadable at render time, or the ` +
+      `atlas was built with <code>--no-embed-docs</code>.</p>`;
+  } else {
+    body.innerHTML = docRaw
+      ? `<pre class="doc-rawtext">${escHTML(text)}</pre>`
+      : mdToHTML(text);
+  }
+  document.getElementById("doc-raw").textContent = docRaw ? "rendered" : "raw";
+  body.scrollTop = 0;
+}
+function openDoc(d) {
+  docNode = d; docRaw = false;
+  paintDoc();
+  if (!docview.open) docview.showModal();
+}
+document.getElementById("doc-close").addEventListener("click", () => docview.close());
+document.getElementById("doc-raw").addEventListener("click", () => {
+  docRaw = !docRaw; paintDoc();
+});
+/* a click that lands on the dialog itself rather than its contents is a click
+   on the backdrop */
+docview.addEventListener("click", ev => { if (ev.target === docview) docview.close(); });
 
 /* ---------------------------- graph rendering ---------------------------- */
 const svg = d3.select("#canvas");
@@ -979,10 +1206,20 @@ function drawGraph() {
      the highlight stays with it, so hovering elsewhere can't desynchronise
      the two. Click the node again, or the background, to release. */
   function showTooltip(d, isPinned) {
+    /* the open control only exists in the pinned panel: unpinned, the panel
+       follows the cursor's hover and the button would be gone before it could
+       be reached. Nodes with no file behind them — built-ins, category hubs,
+       mention targets that aren't installed — get no button rather than one
+       that opens onto nothing. */
+    const openable = isPinned && d.path && d.exists !== false;
     tooltip.innerHTML = tooltipHTML(d) +
-      (isPinned ? `<div class="tt-pin">pinned · click again to release</div>` : "");
+      (isPinned ? `<div class="tt-pin">pinned · click again to release</div>` +
+        (openable ? `<button type="button" class="tt-open">open markdown</button>` : "")
+        : "");
     tooltip.classList.add("on");
     tooltip.classList.toggle("pinned", !!isPinned);
+    const btn = tooltip.querySelector(".tt-open");
+    if (btn) btn.addEventListener("click", ev => { ev.stopPropagation(); openDoc(d); });
   }
   function hideTooltip() { tooltip.classList.remove("on", "pinned"); }
 
