@@ -523,6 +523,7 @@ function renderLegend() {
       <div class="row"><span class="swatch" style="background:transparent;border:1.5px solid var(--tier-searchable)"></span>searchable (dormant)</div>
       <h2>membership</h2>
       <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:2px solid var(--text-primary)"></span>category hub</div>
+      <div class="row"><span class="swatch circle" style="background:var(--surface-1);border:2px solid var(--critical)"></span>uncategorized (unfiled)</div>
       <div class="row"><span class="edge-sample"></span>home category</div>
       <div class="row"><span class="edge-sample" style="border-top-style:dashed"></span>also filed under</div>
       <div class="row"><span class="swatch circle" style="background:var(--warn)"></span>stale category label</div>
@@ -723,30 +724,44 @@ function drawGraph() {
     : n.type === "cat" ? n.name : skillKey(n);
   const groupNames = [...new Set(nodes.map(clusterKey))].sort();
   const centers = new Map();
-  /* how far apart the cluster centres sit. The growth rate was never the
-     problem — the cap was. At 0.62 the scope-view ring saturated by the
-     seventh group, so every group added after that was packed onto a circle
-     of the same size, and the clusters closed on each other exactly as the
-     library grew big enough to need the separation. Same slope, cap lifted to
-     where it only guards against a pathological plugin count zooming the fit
-     into nothing. */
-  /* built-ins ship with Claude Code itself — the one group present in every
-     install whatever else is enabled — and a ring layout always leaves a hole
-     in the middle. So they take the centre and everything else distributes
-     around them. Exactly one group can hold it; a second would just overlap. */
-  const centerGroup = (!catMode && groupNames.includes("builtin")) ? "builtin" : null;
-  const ringNames = groupNames.filter(g => g !== centerGroup);
-  const spread = catMode ? Math.min(0.62, 0.3 + ringNames.length * 0.045)
-    : Math.min(1.15, 0.34 + ringNames.length * 0.055);
+  /* Group centres follow a phyllotaxis spiral — the packing a sunflower head
+     uses — rather than a ring. Group i sits at the golden angle i×137.5° and
+     at a radius drawn from the area already spent, which fills a disc at even
+     density instead of fencing every group onto one circle around a hole.
+
+     The √ is what keeps that density even: radius has to grow with the square
+     root of enclosed area, or the middle crowds while the rim thins out. The
+     golden angle is the irrational turn that stops successive groups ever
+     lining up into spokes.
+
+     Radius comes from accumulated membership rather than from the index.
+     Indexing hands every group an identical band, which breaks as soon as
+     groups differ in size — a 20-member plugin and a 1-skill plugin would get
+     the same room, so the big ones overlap in the middle while single nodes
+     sit in acres of empty rim. Each group sits at the middle of its own band,
+     so nothing is pinned to the exact centre and the order stays the plain
+     alphabetical one. */
+  const groupSize = new Map();
+  nodes.forEach(n => {
+    const k = clusterKey(n);   /* files included: they take up room like anything else */
+    groupSize.set(k, (groupSize.get(k) || 0) + 1);
+  });
+  const spread = Math.min(1.4, 0.36 + groupNames.length * 0.058);
   const R = Math.min(width, height) * spread;
-  /* the stage is widescreen and the old 1.25/0.8 ellipse left some horizontal
-     room unspent; scope view leans a little wider to use it */
-  const ex = catMode ? 1.25 : 1.4, ey = catMode ? 0.8 : 0.8;
-  if (centerGroup) centers.set(centerGroup, [width / 2, height / 2]);
-  ringNames.forEach((g, i) => {
-    const a = (i / ringNames.length) * 2 * Math.PI - Math.PI / 2;
-    centers.set(g, (ringNames.length === 1 && !centerGroup) ? [width / 2, height / 2]
-      : [width / 2 + Math.cos(a) * R * ex, height / 2 + Math.sin(a) * R * ey]);
+  /* the stage is widescreen and a round disc left horizontal room unspent */
+  const ex = 1.4, ey = 0.8;
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));   /* ≈137.5° */
+  const total = groupNames.reduce((s, g) => s + (groupSize.get(g) || 1), 0);
+  let spent = 0;
+  groupNames.forEach((g, i) => {
+    /* a lone group has no spiral to sit on — it takes the middle */
+    if (groupNames.length === 1) { centers.set(g, [width / 2, height / 2]); return; }
+    const size = groupSize.get(g) || 1;
+    const r = R * Math.sqrt((spent + size / 2) / total);
+    spent += size;
+    const a = i * GOLDEN;
+    centers.set(g, [width / 2 + Math.cos(a) * r * ex,
+                    height / 2 + Math.sin(a) * r * ey]);
   });
   const centerOf = n => centers.get(clusterKey(n)) || [width / 2, height / 2];
 
@@ -869,12 +884,19 @@ function drawGraph() {
     }
     if (d.type === "cat") {
       const r = nodeSize(d).r;
+      /* uncategorized is not a category — it is the pile of skills that have
+         not been filed yet, and it competes for the eye with real ones purely
+         on member count. The red outline says "this hub is a backlog, not a
+         subject": run /skill-atlas and it should shrink toward nothing. */
+      const unfiled = d.name === "uncategorized";
       g.append("circle").attr("r", r)
         .attr("fill", "var(--surface-1)")
-        .attr("stroke", "var(--text-primary)").attr("stroke-width", 2);
+        .attr("stroke", unfiled ? "var(--critical)" : "var(--text-primary)")
+        .attr("stroke-width", 2);
       g.append("text").attr("class", "nodelabel")
         .attr("text-anchor", "middle").attr("y", r + 13)
         .style("font-weight", "700")
+        .style("fill", unfiled ? "var(--critical)" : null)
         .text(`${d.name} (${d.count})`);
       return;
     }

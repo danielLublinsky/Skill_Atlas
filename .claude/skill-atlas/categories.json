@@ -75,6 +75,13 @@
       ],
       "desc_hash": "sha256:f6aca329665c9761de344b5e6dad22a0318b84a356c6f059d641dcb973bb62ec"
     },
+    "frontend-design@plugin": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "design-and-architecture"
+      ],
+      "desc_hash": "sha256:f6aca329665c9761de344b5e6dad22a0318b84a356c6f059d641dcb973bb62ec"
+    },
     "graphify": {
       "assigned_at": "2026-08-10",
       "categories": [
@@ -325,12 +332,151 @@
       ],
       "desc_hash": "sha256:62cd2252a31208868ac3f9dcd7ec5633ff03b1ba554943cdcaed073ee54d5539"
     },
+    "runway-api:rw-api-reference": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "research-and-codebase-understanding"
+      ],
+      "desc_hash": "sha256:0c08c5e05424c134e37a750a99caf2f95938c3a39cb6a8adf5ca34c6601b05b6"
+    },
+    "runway-api:rw-check-compatibility": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "research-and-codebase-understanding"
+      ],
+      "desc_hash": "sha256:e61f9e45d3b9a2780e527197f8670c2e3fea348d3fac833dd610d91eb400e02e"
+    },
+    "runway-api:rw-check-org-details": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation"
+      ],
+      "desc_hash": "sha256:795fb86733732f23f085ee9c879bcad94f775e610b323aee66dba67d4dce13b7"
+    },
+    "runway-api:rw-fetch-api-reference": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "research-and-codebase-understanding"
+      ],
+      "desc_hash": "sha256:71aa258459e1c37178015edbb46e6df5916195c8e654281fb6ed8bca19e21f4c"
+    },
+    "runway-api:rw-generate-audio": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation"
+      ],
+      "desc_hash": "sha256:2e06d9e3dbd6c94abf359c4b104e3d7567f18c2f1843d0764a3ce08e1ffa1e55"
+    },
+    "runway-api:rw-generate-image": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation"
+      ],
+      "desc_hash": "sha256:1d985b2c17e2d31c95234890392fbe89ad73f2ef9addfc856416afdbbb134d2e"
+    },
+    "runway-api:rw-generate-video": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation"
+      ],
+      "desc_hash": "sha256:34cc9300f1c0c2d0f840c6ebaf92e1b14485fc4a02ae979a98892de814b022e6"
+    },
+    "runway-api:rw-integrate-audio": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:93f442345dcd0721e4c979c21ddcd1fd87aaec3c66e6596919fb372584bee9ed"
+    },
+    "runway-api:rw-integrate-character-embed": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:c46ba6b2a57ef75a3b43de106c2da0962dfb08a67cbc3f32d064db7139c86143"
+    },
+    "runway-api:rw-integrate-characters": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:46a64c25de5aa9ea9e0dd5573916cf4d26b36aef19737a9ea3af6bd6aca9508e"
+    },
+    "runway-api:rw-integrate-documents": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:40e9476671b5054fa449ae906bb99f7650a5892e1478d439c72cb08aa8a10555"
+    },
+    "runway-api:rw-integrate-image": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:266cafe981663f1d007fe99d2d7b430a98ba0dbbbe8e3a96a20d60a557cdb515"
+    },
+    "runway-api:rw-integrate-uploads": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:bf56bad167c2fddb69c70d73bafe4467d7ea9a43d7de417e4bb6f03a99d38e91"
+    },
+    "runway-api:rw-integrate-video": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "implementation"
+      ],
+      "desc_hash": "sha256:f2b654af07b8b245c252dc63f35adce5709902f78f6e628fa56e66ff3cd1aa17"
+    },
+    "runway-api:rw-recipe-full-setup": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:2adb2ef10c577b531325ee05820bd46d21bb59bef0c9c31a1368ed842275595a"
+    },
+    "runway-api:rw-setup-api-key": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation",
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:d8ae5676e61df28f9dc9f49b2c114d8c9b5fe0ff098d8facc4ab4fadfa782d6e"
+    },
+    "runway-api:use-runway-api": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "media-generation"
+      ],
+      "desc_hash": "sha256:f1cfa3818368b1930aeea1e143b144203407336c290246a3f467dfdbe8bd1d3c"
+    },
     "schedule": {
       "assigned_at": "2026-08-11",
       "categories": [
         "tooling-and-environment-setup"
       ],
       "desc_hash": "sha256:58116ec05f585d4d4f4ed06cb9757855066d948e1f86ab351e0309627f56d0bb"
+    },
+    "search-skill-test": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "testing-and-verification",
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:9c4e24b4018ce1f89b834e65c68ffb494ed9e8fe66c9885d027bf368eed94ebe"
     },
     "security-review": {
       "assigned_at": "2026-08-11",
@@ -540,6 +686,10 @@
     {
       "description": "building or styling a front end inside one hosted platform's own rules \u2014 its templating, component markup, styling tokens and accessibility requirements; general aesthetic direction belongs to design",
       "name": "platform-frontend-conventions"
+    },
+    {
+      "description": "producing images, video, audio or conversational avatars from a prompt, and wiring that generation into an application",
+      "name": "media-generation"
     }
   ],
   "taxonomy_approved_at": "2026-08-10",
