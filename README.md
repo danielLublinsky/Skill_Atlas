@@ -145,9 +145,6 @@ edge to the home category, dashed to the rest; search `cat:<name>` to isolate).
 
 ## 🛠️ Building and debugging skills
 
-Most skill bugs reduce to one question: *what did Claude actually load?* The atlas
-shows that, rather than what you assume is installed.
-
 ![Debugging a skill in the atlas](assets/atlas-markdown.png)
 
 - **What's really registered** — discovery is manifest-driven, so unregistered copies
