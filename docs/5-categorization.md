@@ -3,8 +3,7 @@
 **Files:** [atlas_categories.py](../scripts/atlas_categories.py) (schema +
 validating writer), [categorize.py](../scripts/categorize.py) (the CLI),
 [atlas_annotate.py](../scripts/atlas_annotate.py) (shared derivation).
-**Agent-facing:** [commands/skill-atlas.md](../commands/skill-atlas.md),
-[skills/skill-atlas/SKILL.md](../skills/skill-atlas/SKILL.md).
+**Agent-facing:** [skills/skill-atlas/SKILL.md](../skills/skill-atlas/SKILL.md).
 **Tests:** [test_categories.py](../tests/test_categories.py),
 [test_categorize_flow.py](../tests/test_categorize_flow.py).
 

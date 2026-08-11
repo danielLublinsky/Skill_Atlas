@@ -145,6 +145,18 @@ class TestSkillSearchPackaging(unittest.TestCase):
         self.assertEqual(manifest["skills"],
                          ["./skills/skill-atlas", "./skills/skill-search"])
 
+    def test_no_duplicate_component_names(self):
+        """A command and a skill sharing a name register two components under
+        one address: the loser is unreachable while both still cost session
+        tokens. `skill-atlas` was both until the command merged into the
+        skill."""
+        names = [atlas_discovery.parse_frontmatter(p.read_text())["name"]
+                 for p in sorted((helpers.REPO / "skills").glob("*/SKILL.md"))]
+        names += [p.stem
+                  for p in sorted((helpers.REPO / "commands").glob("*.md"))]
+        self.assertEqual(sorted(names), sorted(set(names)),
+                         f"name claimed by two components: {names}")
+
     def test_skill_search_frontmatter(self):
         text = (helpers.REPO / "skills" / "skill-search" / "SKILL.md").read_text()
         fields = atlas_discovery.parse_frontmatter(text)

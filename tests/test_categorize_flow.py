@@ -1,6 +1,6 @@
 """M3: the /skill-atlas categorization flow, end to end at the CLI level.
 
-The conversational layer (commands/skill-atlas.md) is validated live; these
+The conversational layer (skills/skill-atlas/SKILL.md) is validated live; these
 tests pin the CLI sequence it drives: bootstrap → rebuild → a new skill
 arrives and is assigned into the frozen taxonomy with zero reshuffling →
 a description edit goes stale and is confirmed."""

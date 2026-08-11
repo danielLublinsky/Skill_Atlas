@@ -109,9 +109,12 @@ especially load-bearing:
 
 - `skill-search`'s frontmatter description — the entire triggering surface for
   the dormant tier ([6](6-catalog-and-search.md)).
-- `commands/skill-atlas.md` — the bootstrap/incremental branch logic. Its rules
-  must stay in step with what `categorize.py` actually enforces (full coverage,
-  frozen taxonomy, exit 3 semantics).
+- `skills/skill-atlas/SKILL.md` — the bootstrap/incremental branch logic. Its
+  rules must stay in step with what `categorize.py` actually enforces (full
+  coverage, frozen taxonomy, exit 3 semantics).
 
 Keep both in sync with the CLI, and re-check `test_shards.TestSkillSearchPackaging`
-after any edit to plugin registration or that frontmatter.
+after any edit to plugin registration or that frontmatter. One name may not be
+claimed twice: a `commands/<x>.md` beside a skill named `<x>` registers two
+components under one address, so the later one is unreachable while both still
+cost session tokens — `test_no_duplicate_component_names` pins that.

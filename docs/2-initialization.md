@@ -15,13 +15,13 @@ Python 3, stdlib only. No pip, no venv, no network at build or view time (D3 is
 vendored at [vendor/d3.v7.min.js](../vendor/d3.v7.min.js); its provenance is
 reproducible via [dev/fetch_d3.sh](../dev/fetch_d3.sh), which is dev-only).
 
-The plugin registers two skills and two commands
+The plugin registers two skills and one command
 ([.claude-plugin/plugin.json](../.claude-plugin/plugin.json),
 [hooks/hooks.json](../hooks/hooks.json)):
 
 | Surface | What it does |
 | --- | --- |
-| `/skill-atlas` (command + skill) | build → categorize → render → report |
+| `/skill-atlas` (skill) | build → categorize → render → report |
 | `/skill-atlas:edit-searchable` | move plugins in/out of the searchable tier |
 | `skill-search` (skill) | the two-stage catalog query — the one always-enabled cost |
 | SessionStart hook | rebuild if stale, inject the index line |

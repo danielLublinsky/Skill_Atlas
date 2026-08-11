@@ -54,7 +54,7 @@ off ([atlas_annotate.py:27](../scripts/atlas_annotate.py#L27),
 ```
 
 Every arrow above is offline, deterministic and stdlib-only. **No model runs
-anywhere in this pipeline** except inside the `/skill-atlas` command, where a
+anywhere in this pipeline** except inside the `/skill-atlas` skill, where a
 model drafts the taxonomy and assigns skills through the `categorize.py` CLI.
 
 ## Module map

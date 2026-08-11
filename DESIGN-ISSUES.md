@@ -130,7 +130,9 @@ so the miss is silent.
 
 **Shape of the fix.** Taken (2026-08-11): assignment rules added to
 `commands/skill-atlas.md`, `skills/skill-atlas/SKILL.md` and
-`docs/5-categorization.md` — multi-home across confusable boundaries (the
+`docs/5-categorization.md` (the command was merged into the skill on
+2026-08-12, so those rules now live in the SKILL.md alone) — multi-home
+across confusable boundaries (the
 boundary clauses mark the pairs to sweep), second home requires a realistic
 task phrasing, platform-locked skills stay out of generic categories. Applies
 to fresh bootstraps and future incremental assigns. Existing scopes keep
