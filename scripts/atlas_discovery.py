@@ -234,9 +234,10 @@ def discover(light=False) -> dict:
 
 def _assign_ids(skills) -> list:
     """Node id = the invocation string: '<plugin>:<name>' for plugin skills,
-    bare '<name>' for user/project. Bare-name collisions (project shadowing
-    user) get disambiguated ids like 'graphify@user' and are reported —
-    a duplicate name is a defect worth surfacing, not an edge case to merge."""
+    bare '<name>' for user/project. Collisions on that string get an id with
+    a discriminator appended ('graphify@user') and the ambiguous invocation
+    string itself is returned — a duplicate name is a defect worth surfacing,
+    not an edge case to merge."""
     for skill in skills:
         if skill["scope"] == "plugin":
             skill["id"] = f"{skill['plugin']}:{skill['name']}"
@@ -251,8 +252,61 @@ def _assign_ids(skills) -> list:
             duplicates.append(node_id)
             for skill in group:
                 skill["duplicate"] = True
-                skill["id"] = f"{skill['name']}@{skill['scope']}"
+            _disambiguate(node_id, group)
+    _enforce_unique_ids(skills)
     return duplicates
+
+
+# Rename attempts, in order, for a colliding group. Scope comes first: it
+# settles the case this started as (a project skill shadowing a user one)
+# with the shortest readable id.
+_DISCRIMINATORS = (("scope",), ("marketplace",), ("version",),
+                   ("scope", "marketplace", "version"))
+
+
+def _disambiguate(base_id, group) -> None:
+    """Give a colliding group ids that actually differ.
+
+    '<name>@<scope>' was the original rule, and it separates a group only
+    when the collision *was* a scope difference. Two plugins of the same name
+    from different marketplaces are all scope 'plugin', so that rule mapped
+    the whole group onto one id — converting a reported collision into a
+    silent one, since detection had already run (DESIGN-ISSUES issue 2). So
+    walk the ladder until the candidates are distinct. The id stays the
+    ambiguous invocation string plus what separates this member from its
+    twins, which keeps `duplicate_names` a prefix of every id it covers."""
+    candidates = None
+    for keys in _DISCRIMINATORS:
+        candidates = [_collision_id(base_id, skill, keys) for skill in group]
+        if len(set(candidates)) == len(group):
+            break
+    for skill, node_id in zip(group, candidates):
+        skill["id"] = node_id
+
+
+def _collision_id(base_id, skill, keys) -> str:
+    """base_id plus the named record fields, skipping the ones this record
+    does not carry (a user skill has no marketplace or version)."""
+    parts = [str(skill[key]) for key in keys if skill.get(key)]
+    return "@".join([base_id] + parts)
+
+
+def _enforce_unique_ids(skills) -> None:
+    """The id is the join key for graph.json, the catalog shards and
+    categories.json, so uniqueness is an invariant rather than a best effort.
+    The ladder settles every case seen in the wild; this is the backstop for
+    records that differ in nothing it can read, and it keeps such a pair
+    separately addressable instead of letting two rows share a key."""
+    totals = {}
+    for skill in skills:
+        totals[skill["id"]] = totals.get(skill["id"], 0) + 1
+    seen = {}
+    for skill in skills:
+        node_id = skill["id"]
+        if totals[node_id] > 1:
+            seen[node_id] = seen.get(node_id, 0) + 1
+            skill["duplicate"] = True
+            skill["id"] = f"{node_id}@{seen[node_id]}"
 
 
 def skill_md_paths() -> list:

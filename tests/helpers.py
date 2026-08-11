@@ -166,6 +166,33 @@ def searchable_config(*plugins) -> dict:
     return {"version": 1, "searchable_plugins": list(plugins)}
 
 
+def install_plugin(sandbox, marketplace, plugin, version, *skills,
+                   description="Planted fixture plugin.") -> Path:
+    """Register one more installed plugin in the sandbox, cache tree and
+    installed_plugins.json both. Built at runtime rather than added to
+    fakehome/ so the shared fixture collection (and every count asserted
+    against it) stays fixed. Returns the install path."""
+    import json
+    install = sandbox.claude / "plugins" / "cache" / marketplace / plugin / version
+    for name in skills:
+        skill_md = install / "skills" / name / "SKILL.md"
+        skill_md.parent.mkdir(parents=True, exist_ok=True)
+        skill_md.write_text(f"---\nname: {name}\ndescription: Planted {name}.\n"
+                            "---\n\nbody\n", encoding="utf-8")
+    manifest_dir = install / ".claude-plugin"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    (manifest_dir / "plugin.json").write_text(json.dumps({
+        "name": plugin, "version": version, "description": description,
+        "skills": [f"./skills/{name}" for name in skills]}), encoding="utf-8")
+
+    registry = sandbox.claude / "plugins" / "installed_plugins.json"
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    data["plugins"][f"{plugin}@{marketplace}"] = [
+        {"scope": "user", "installPath": str(install), "version": version}]
+    registry.write_text(json.dumps(data), encoding="utf-8")
+    return install
+
+
 def write_builtins(sandbox, *skills, raw=None) -> None:
     """Plant a built-in manifest at the sandbox's SKILL_ATLAS_BUILTINS path
     (nonexistent by default — no built-ins). Each skill is a {name,

@@ -67,6 +67,20 @@
       ],
       "desc_hash": "sha256:77998c14786350e02d59d4185d00df72436f5c341f76c89a9e6cf1813d715533"
     },
+    "frontend-design:frontend-design@claude-code-plugins": {
+      "assigned_at": "2026-08-12",
+      "categories": [
+        "ui-and-visual-design"
+      ],
+      "desc_hash": "sha256:f6aca329665c9761de344b5e6dad22a0318b84a356c6f059d641dcb973bb62ec"
+    },
+    "frontend-design:frontend-design@claude-plugins-official": {
+      "assigned_at": "2026-08-12",
+      "categories": [
+        "ui-and-visual-design"
+      ],
+      "desc_hash": "sha256:f6aca329665c9761de344b5e6dad22a0318b84a356c6f059d641dcb973bb62ec"
+    },
     "frontend-design@plugin": {
       "assigned_at": "2026-08-12",
       "categories": [

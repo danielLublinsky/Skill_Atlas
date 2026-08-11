@@ -1,9 +1,11 @@
 # Design issues
 
-Open defects found by a 10-agent read-only probe of `skill-search` (one agent
-per catalog category). Routing was 10/10 correct — every agent picked the right
-category on the first try. Both issues below are in **what discovery collects**,
-not in how search reads it.
+Defects found by read-only probe fleets over `skill-search`: a 10-agent run (one
+agent per catalog category — routing was 10/10 correct, every agent picked the
+right category on the first try) and a later 8-agent boundary run. Issues 1 and
+2 were in **what discovery collects**, not in how search reads it; issue 3 is in
+the categorization instructions. A resolved issue keeps its original report
+below the resolution.
 
 ---
 
@@ -36,7 +38,7 @@ Verified after rebuild: the code-review shard now serves the built-in
 `code-review [enabled]` beside `mattpocock-skills:code-review [searchable]` —
 the shadowing case below. Details: docs/3-discovery.md §"Built-ins".
 
-### Original report
+### Original report — issue 1
 
 **What happens.** Skills that ship with Claude Code itself are absent from every
 shard. Verified missing: `simplify`, `security-review`, `dataviz`,
@@ -62,7 +64,40 @@ tier should read — they are enabled, but not via a plugin manifest.
 
 ---
 
-## Issue 2 — `frontend-design` is stranded with a colliding id
+## Issue 2 — `frontend-design` is stranded with a colliding id — **RESOLVED 2026-08-12**
+
+**Resolution.** `_assign_ids` now escalates: the colliding invocation string
+plus whichever record field actually separates the group — scope, then
+marketplace, then version, then all three (`_disambiguate`) — and
+`_enforce_unique_ids` backstops records that differ in nothing discovery can
+read. The id is the join key for graph.json, the shards and `categories.json`,
+so uniqueness is an invariant now rather than a hoped-for property. Verified on
+the reporting machine: `frontend-design:frontend-design@claude-plugins-official`
+and `frontend-design:frontend-design@claude-code-plugins`, 87/87 ids unique,
+`orphan_ids` no longer lists one string twice. `duplicate_names` deliberately
+keeps recording the *pre-rename* id (`frontend-design:frontend-design`) — that
+is the ambiguous invocation string, `orphan_ids()` depends on the pre-rename
+form to suppress false orphan warnings, and it is now a prefix of every id it
+covers. Details: docs/3-discovery.md §"Node ids are invocation strings".
+
+Two corrections to the original report:
+
+- **The `unknown` version is not a broken install.** That plugin's
+  `plugin.json` carries no `version` field at all — legal, since the key is
+  optional — and `installed_plugins.json` records `"unknown"` faithfully.
+  Nothing to report; at most a display choice ("unversioned").
+- **The two files are byte-identical** (`md5 31c6336…`): one Anthropic skill
+  published through two marketplaces. So "same name, same content, delete one"
+  and "same name, different skill" are different problems for the user, and the
+  atlas still cannot tell them apart. A content hash on duplicate-named nodes
+  would — filed as its own enhancement, not part of this fix.
+
+Cost, as predicted: the old `frontend-design@plugin` assignment key stops
+resolving and is reported as an `orphan_assignment`; both new ids arrive in
+`categorize.py status` as uncategorized (tier `off`) for the next
+`/skill-atlas` run to file.
+
+### Original report — issue 2
 
 **What happens.** `catalog/uncategorized.md` holds two entries, and they are the
 same skill twice:

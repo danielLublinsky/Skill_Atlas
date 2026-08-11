@@ -71,6 +71,34 @@ class TestDiscovery(unittest.TestCase):
             dupes = sorted(s["id"] for s in result["skills"] if s.get("duplicate"))
             self.assertEqual(dupes, ["graphify@project", "graphify@user"])
 
+    def test_same_name_from_two_marketplaces_gets_distinct_ids(self):
+        """DESIGN-ISSUES issue 2: the rename to '<name>@<scope>' separated a
+        collision only when the collision WAS a scope difference. Two plugins
+        of one name are all scope 'plugin', so it mapped the whole group onto
+        a single id — re-colliding silently, detection having already run."""
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.install_plugin(sandbox, "other-mp", "alpha", "2.0.0", "one")
+            result = self._discover(sandbox)
+            self.assertEqual(result["duplicate_names"], ["alpha:one", "graphify"])
+            ids = sorted(s["id"] for s in result["skills"] if s["name"] == "one")
+            self.assertEqual(ids, ["alpha:one@fake-mp", "alpha:one@other-mp"])
+            everything = [s["id"] for s in result["skills"]]
+            self.assertEqual(len(everything), len(set(everything)),
+                             "an id must resolve to exactly one node")
+
+    def test_ids_stay_unique_when_records_are_indistinguishable(self):
+        """The backstop, at unit level: the id is the join key for graph.json,
+        the shards and categories.json, so uniqueness holds even for records
+        that differ in nothing discovery can read."""
+        twins = [{"name": "twin", "scope": "plugin", "plugin": "p",
+                  "marketplace": "mp", "version": "1.0.0"} for _ in range(3)]
+        self.assertEqual(atlas_discovery._assign_ids(twins), ["p:twin"])
+        self.assertEqual([s["id"] for s in twins],
+                         ["p:twin@plugin@mp@1.0.0@1",
+                          "p:twin@plugin@mp@1.0.0@2",
+                          "p:twin@plugin@mp@1.0.0@3"])
+        self.assertTrue(all(s["duplicate"] for s in twins))
+
     def test_install_records_surfaced(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             result = self._discover(sandbox)

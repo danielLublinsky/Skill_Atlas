@@ -99,12 +99,29 @@ already namespaced ([`_assign_ids`](../scripts/atlas_discovery.py#L235)):
 - user / project skill → bare `<name>`
 - `name` comes from frontmatter `name:`, falling back to the directory name.
 
-**Collisions are surfaced, never merged.** When two skills share an id (a
-project skill shadowing a user one), *both* get disambiguated ids —
-`graphify@user`, `graphify@project` — each is flagged `duplicate: true`, and the
-name lands in `stats.duplicate_names`. Mentions of the bare name then resolve to
-neither. A duplicate name is a real defect worth showing, not an edge case to
-paper over.
+**Collisions are surfaced, never merged.** When two skills share an id, *both*
+get the colliding id plus whatever separates them, each is flagged
+`duplicate: true`, and the ambiguous invocation string lands in
+`stats.duplicate_names`. Mentions of the bare name then resolve to neither. A
+duplicate name is a real defect worth showing, not an edge case to paper over.
+
+The discriminator is whichever record field actually differs, tried in order —
+scope, then marketplace, then version, then all three
+([`_disambiguate`](../scripts/atlas_discovery.py#L267)):
+
+| Collision | Ids |
+| --- | --- |
+| project skill shadowing a user one | `graphify@user`, `graphify@project` |
+| one plugin name from two marketplaces | `frontend-design:frontend-design@claude-plugins-official`, `…@claude-code-plugins` |
+
+Scope comes first because it settles the shadowing case with the shortest
+readable id. It is **not** sufficient on its own: two plugins of the same name
+are both scope `plugin`, so `<name>@<scope>` mapped the whole group onto one id
+and re-collided *silently*, detection having already run (DESIGN-ISSUES issue
+2). Since ids are the join key for graph.json, the shards and
+`categories.json`, uniqueness is an invariant —
+[`_enforce_unique_ids`](../scripts/atlas_discovery.py#L294) is the backstop for
+records that differ in nothing discovery can read, appending `@1`, `@2`.
 
 > Assignments in `categories.json` are keyed by these ids, disambiguated form
 > included. Renaming or un-shadowing a skill therefore *moves* its id — the old
