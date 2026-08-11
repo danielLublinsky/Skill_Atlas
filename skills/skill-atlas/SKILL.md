@@ -52,12 +52,19 @@ failed, run `build_graph.py` once before rendering.
   boundary between confusable categories; a product earns a category only
   when it dominates; never enumerate product words — the build derives
   token lists from membership), assign EVERY skill (ordered list, first =
-  display home; the CLI rejects incomplete coverage — if nothing fits, the
-  taxonomy is missing a category, so create it), and pipe
+  display home; multi-home across confusable boundaries — search reads ONE
+  shard, so assign each skill to every category a realistic task needing it
+  would plausibly route to, and the boundary clauses in the descriptions
+  mark exactly the pairs to sweep; a second home needs a realistic task
+  phrasing, not a conceptual relation; platform-locked skills stay in their
+  platform category; the CLI rejects incomplete coverage — if nothing fits,
+  the taxonomy is missing a category, so create it), and pipe
   `{"taxonomy": [...], "assignments": {id: [labels]}}` into
   `categorize.py bootstrap` via heredoc.
 - **`bootstrapped: true`** → the taxonomy is frozen. Batch-assign the
-  `uncategorized` list into it with `categorize.py assign`; when nothing
+  `uncategorized` list into it with `categorize.py assign`, multi-homing by
+  the same rule as bootstrap (every category a realistic task would route
+  to, not just the best single fit); when nothing
   fits, `categorize.py add-category <name> "<desc>"` then assign — and call
   the addition out prominently in the report. For `stale` entries re-read
   the description: labels still right → `categorize.py confirm <ids…>`,

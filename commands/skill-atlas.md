@@ -32,8 +32,25 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    Assign EVERY skill to one or more categories, ordered (first entry is its
    display home) — full coverage is mandatory and the CLI rejects a bootstrap
    that leaves any skill unassigned; if nothing fits a skill, the taxonomy is
-   missing a category, so create it. Then write it in one call — on exit 3,
-   fix exactly what stderr names and retry:
+   missing a category, so create it. Assignment rules:
+   - **Multi-home across confusable boundaries.** Search reads ONE shard,
+     picked from the one-line descriptions, so a skill filed on only one side
+     of a confusable pair is invisible to every task phrased in the twin's
+     terms. Assign each skill to EVERY category a realistic task needing it
+     would plausibly route to, home first — a debugging methodology also
+     belongs in testing ("my tests are failing" is a debugging task phrased
+     as testing); a design-interrogation skill also belongs in discovery.
+     The boundary clauses written into the descriptions mark exactly the
+     pairs to sweep: a boundary worth disclaiming in prose is a boundary
+     whose straddling skills belong on both sides.
+   - A second home needs a realistic task phrasing, not a conceptual
+     relation — when most skills sit in 3+ categories, the shards bloat back
+     toward the flat catalog this system exists to avoid.
+   - A platform-locked skill (usable only on one vendor's stack) stays in
+     its platform category — never file it into a generic category its
+     wording happens to match.
+   Then write it in one call — on exit 3, fix exactly what stderr names and
+   retry:
 
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/categorize.py" bootstrap <<'EOF'
@@ -47,7 +64,9 @@ visualization, then report. All scripts live under `${CLAUDE_PLUGIN_ROOT}/script
    - For every id in `uncategorized`: match its description against the frozen
      taxonomy's one-line descriptions; batch all fits into ONE
      `categorize.py assign` call (same stdin shape as bootstrap, without
-     "taxonomy").
+     "taxonomy"). The bootstrap assignment rules apply here too: multi-home
+     the skill into every category a realistic task would route to, not just
+     its best single fit.
    - If nothing fits a skill: add a category yourself —
      `categorize.py add-category <name> "<one-line description>"`, then assign —
      and call the addition out prominently in the report.

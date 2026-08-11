@@ -94,3 +94,53 @@ the two rows indistinguishable to anything downstream that keys on id.
 actually differs — marketplace, or plugin install path. Separately, decide what
 a `unknown` version segment means: a stale or half-installed plugin cache may be
 worth reporting rather than cataloguing.
+
+---
+
+## Issue 3 — Overlap is missing exactly where categories are confusable — **INSTRUCTIONS FIXED 2026-08-11, data pending**
+
+Found by an 8-agent boundary probe (one deliberately ambiguous task per
+confusable category pair, Opus, read-only). Score: 8/8 found the right skill —
+but 6/8 needed the full index-plus-two-shards budget, and one probe reported
+outright that a one-shard read would have missed the best skill.
+
+**What happens.** The catalog's stated defense against a wrong stage-1 pick is
+overlap ("the pick doesn't have to land on *the* right bucket, only *a* right
+one"). Measured on this scope: 63/87 assignments are single-category, and the
+confusable pairs share almost nothing — `debugging` ∩
+`testing-and-verification` = 0 skills, `discovery` ∩ `design` = 2, `discovery`
+∩ `planning` = 1. The only heavy overlap (`implementation` +
+`media-generation`, 7 pairings) belongs to an uninstalled plugin's orphaned
+assignments. Probes survived on two crutches instead: the boundary carve-outs
+in category descriptions, and spending the optional second shard defensively.
+Probe 4 ("restructure how our backend modules talk") matched the discovery
+description almost verbatim; the best skill,
+`improve-codebase-architecture`, is single-homed in design — it was found
+only via the second shard.
+
+**Why it happens.** The bootstrap instructions spend four rules on
+*description* quality but said only "assign EVERY skill to one or more
+categories" about assignment — multi-homing was permitted, never instructed,
+so the categorizing model minimized it.
+
+**Why it matters.** This is the wrong-answer failure class: an agent that
+opens the twin shard finds a plausible generic skill, is satisfied, and never
+learns the better skill exists — search forbids looking outside the catalog,
+so the miss is silent.
+
+**Shape of the fix.** Taken (2026-08-11): assignment rules added to
+`commands/skill-atlas.md`, `skills/skill-atlas/SKILL.md` and
+`docs/5-categorization.md` — multi-home across confusable boundaries (the
+boundary clauses mark the pairs to sweep), second home requires a realistic
+task phrasing, platform-locked skills stay out of generic categories. Applies
+to fresh bootstraps and future incremental assigns. Existing scopes keep
+their under-homed assignments until the planned category-control command
+lands (the taxonomy/assignment data is model-generated and frozen by design —
+no hand-repair path).
+
+Related probe findings, same run, not fixed here: index token lists lead with
+plugin names and truncate real skill names past `TOKEN_BUDGET_CHARS`
+(`update-config` invisible in the `tooling-and-environment-setup` line);
+generically-named vendor-locked `ui-theme-designer` tokens bait a wasted
+shard read; near-duplicate skills surface with no tiebreaker between their
+one-line descriptions.

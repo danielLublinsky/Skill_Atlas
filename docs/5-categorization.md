@@ -155,12 +155,32 @@ skill by matching against it, and the user judges the taxonomy by it. Rules:
   membership automatically, and a hand-written list rots the day a new plugin
   joins the category.
 
+**Assignment carries the search-safety load.** Stage 1 picks ONE shard from
+one-line descriptions — a lossy guess — and the designed defense is overlap:
+a skill present in every shard a plausible pick lands on makes the wrong-twin
+pick harmless. Overlap that exists only where it doesn't matter is the failure
+mode (measured 2026-08-11, DESIGN-ISSUES issue 3). Rules:
+
+- **multi-home across confusable boundaries** — assign each skill to every
+  category a realistic task needing it would plausibly route to, home first.
+  The boundary clauses in the descriptions mark exactly the pairs to sweep: a
+  boundary worth disclaiming in prose is a boundary whose straddling skills
+  belong on both sides (a debugging methodology also lives in testing,
+  because "my tests are failing" is a debugging task phrased as testing);
+- a second home requires a **realistic task phrasing**, not a conceptual
+  relation — when most skills sit in 3+ categories, shards bloat back toward
+  the flat catalog the system exists to avoid;
+- a **platform-locked** skill stays in its platform category — generic
+  wording in its description ("theme", "tokens", "design") must not pull it
+  into generic categories where it is dead weight for every non-platform
+  task.
+
 ## Incremental — every run after
 
 The taxonomy is frozen; unchanged skills are **never re-labeled**.
 
 - `uncategorized` ids → match against the frozen descriptions, batch into **one**
-  `assign` call.
+  `assign` call, multi-homed by the same boundary rule as bootstrap.
 - Nothing fits → `add-category`, then assign, and **call the addition out
   prominently in the report**. Silent taxonomy growth is how the category layout
   reshuffles under a search skill that memorized last week's shape.
