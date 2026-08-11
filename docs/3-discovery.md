@@ -29,7 +29,7 @@ Four nested definitions exist, and the code is explicit about which one it means
 
 ## Walk order
 
-[`discover()`](../scripts/atlas_discovery.py#L108):
+[`discover()`](../scripts/atlas_discovery.py#L148):
 
 1. `~/.claude/skills/*/SKILL.md` → scope `user`
 2. `<scope>/.claude/skills/*/SKILL.md` → scope `project` (skipped when the scope
@@ -46,18 +46,54 @@ Four nested definitions exist, and the code is explicit about which one it means
      fallback is load-bearing, not a defensive nicety — `superpowers` registers
      all 14 of its skills this way.
 4. everything else under an install path is indexed as **unregistered**
-   ([atlas_discovery.py:169](../scripts/atlas_discovery.py#L169)) — recorded,
+   ([atlas_discovery.py:210](../scripts/atlas_discovery.py#L210)) — recorded,
    not drawn, unless a registered skill mentions it (see
    [4-graph-build.md](4-graph-build.md)).
+5. the vendored built-in manifest → scope `builtin` (see below).
 
 Only immediate children of a skill root are considered
-([`_root_skill_dirs`](../scripts/atlas_discovery.py#L96)), and symlinks are
+([`_root_skill_dirs`](../scripts/atlas_discovery.py#L97)), and symlinks are
 followed — a live user skill is often a symlinked directory.
+
+## Built-ins: the fourth root has no directory
+
+Skills that ship with Claude Code itself (`code-review`, `dataviz`,
+`security-review`, …) live inside the binary — no `SKILL.md` on disk, no
+plugin manifest entry, no CLI that lists them. Nothing walkable exists, so
+they are enumerated from a **vendored manifest**,
+[`scripts/builtin_skills.json`](../scripts/builtin_skills.json), curated and
+updated with skill-atlas releases (the file records which Claude Code version
+it was written against).
+
+This closes the shadowing defect from DESIGN-ISSUES issue 1: search tells the
+model never to look outside `catalog/`, so a built-in absent from every shard
+was not merely missing — it was unreachable, even when it was the best match.
+
+Properties of a built-in record ([`_builtin_records`](../scripts/atlas_discovery.py#L109)):
+
+- `scope: "builtin"`, `path: null` — every downstream stage skips file work
+  on path-less records; shards print a "ships with Claude Code" line instead
+  of a path.
+- **Tier reads `[enabled]`.** Built-ins are always session-loaded and
+  natively invocable via the Skill tool. They are never `searchable` — that
+  tier exists to bypass the plugin machinery, which built-ins don't use.
+- Ids are bare invocation names, so a user/project skill sharing a built-in's
+  name is a surfaced collision (`dataviz@user` / `dataviz@builtin`), same as
+  any other duplicate.
+- A missing or malformed manifest yields **no built-ins, never an error** —
+  the file ships with the tool, so absence means a trimmed install, not a
+  broken environment.
+- Freshness rides the manifest side of the fingerprint:
+  `builtins_path()` is in [`manifest_paths()`](../scripts/atlas_paths.py#L194),
+  so editing or updating the vendored list rebuilds on next session;
+  `skill_md_paths()` excludes path-less records.
+- `SKILL_ATLAS_BUILTINS` overrides the manifest location — the testability
+  seam; the test sandbox points it at a nonexistent file by default.
 
 ## Node ids are invocation strings
 
 The id is the exact string Claude Code invokes the skill with — already unique,
-already namespaced ([`_assign_ids`](../scripts/atlas_discovery.py#L189)):
+already namespaced ([`_assign_ids`](../scripts/atlas_discovery.py#L235)):
 
 - plugin skill → `<plugin>:<name>`
 - user / project skill → bare `<name>`
@@ -81,7 +117,7 @@ most-invoked plugin was disabled when the tool was designed — filtering on
 enabled state would have hidden exactly the thing worth shouting about.
 
 `enabled` is resolved from **merged** settings, lowest precedence first
-([atlas_paths.py:134](../scripts/atlas_paths.py#L134)):
+([atlas_paths.py:143](../scripts/atlas_paths.py#L143)):
 
 ```text
 ~/.claude/settings.json  <  ~/.claude/settings.local.json
@@ -92,12 +128,12 @@ enabled state would have hidden exactly the thing worth shouting about.
 Keys are composite `<name>@<marketplace>` strings — that is how both
 `settings.json` and `installed_plugins.json` key plugins. A plugin absent from
 every `enabledPlugins` map defaults to **enabled**
-([atlas_discovery.py:137](../scripts/atlas_discovery.py#L137)). Unreadable or
+([atlas_discovery.py:178](../scripts/atlas_discovery.py#L178)). Unreadable or
 malformed settings files are skipped, not fatal.
 
 ## Reading `installed_plugins.json`
 
-[`installed_plugins()`](../scripts/atlas_paths.py#L150). Per-plugin values are
+[`installed_plugins()`](../scripts/atlas_paths.py#L159). Per-plugin values are
 **arrays** of install records. One record is chosen — project scope preferred,
 else the first — and the total record count is surfaced as `install_records`
 rather than hidden. `version` is opaque and may literally be `"unknown"`.
@@ -108,7 +144,7 @@ is unknowable, and a half-built graph would silently look like deletions.
 
 ## Frontmatter parsing
 
-[`parse_frontmatter()`](../scripts/atlas_discovery.py#L24) is hand-rolled — no
+[`parse_frontmatter()`](../scripts/atlas_discovery.py#L25) is hand-rolled — no
 YAML dependency. It handles quoted values and folded/literal block scalars
 (`>`, `|`, `>-`, …) conservatively, and strips a leading BOM. Only `name:` and
 `description:` are consumed. If you add a frontmatter field the graph should
@@ -117,7 +153,7 @@ carry, extend `_skill_record`, not the parser.
 ## light mode
 
 `discover(light=True)` skips every file read — stat and paths only. The
-fingerprint uses it ([`skill_md_paths()`](../scripts/atlas_discovery.py#L212)),
+fingerprint uses it ([`skill_md_paths()`](../scripts/atlas_discovery.py#L258)),
 so enumeration logic can never drift between staleness checking and building.
 Keep that property: any new discovery input must appear in both modes.
 

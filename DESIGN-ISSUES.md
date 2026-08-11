@@ -7,7 +7,36 @@ not in how search reads it.
 
 ---
 
-## Issue 1 — Built-in skills never enter the catalog
+## Issue 1 — Built-in skills never enter the catalog — **RESOLVED 2026-08-11**
+
+**Resolution.** Discovery gained a fourth root: a vendored manifest,
+`scripts/builtin_skills.json`, listing the skills that ship inside the Claude
+Code binary (15 entries as of Claude Code 2.1.227). The two open decisions
+were taken as follows:
+
+- **How to locate them:** they cannot be located — verified: not under
+  `~/.claude/`, not in `installed_plugins.json`, not materialized in any
+  cache, no CLI that lists them, and not extractable from the (compiled ELF)
+  binary. So the list is *curated data* shipped with skill-atlas, updated
+  with releases. A missing/malformed manifest degrades to "no built-ins",
+  never an error. `SKILL_ATLAS_BUILTINS` overrides the path (test seam);
+  the file joins `manifest_paths()` so updating it flips the staleness
+  fingerprint. The known cost: the list can drift from the user's Claude
+  Code version until skill-atlas ships an update — accepted, since every
+  alternative (transcript mining is dead per DESIGN §6; binary scraping is
+  coupling to an opaque format) was worse.
+- **How the tier reads:** `[enabled]`. Built-ins are always session-loaded
+  and natively invocable via the Skill tool, which is exactly what
+  `[enabled]` instructs. They get `scope: "builtin"`, `path: null`; shards
+  print `- built-in: ships with Claude Code, no file on disk` instead of a
+  path line. They are never `searchable` — that tier exists to bypass plugin
+  machinery built-ins don't use.
+
+Verified after rebuild: the code-review shard now serves the built-in
+`code-review [enabled]` beside `mattpocock-skills:code-review [searchable]` —
+the shadowing case below. Details: docs/3-discovery.md §"Built-ins".
+
+### Original report
 
 **What happens.** Skills that ship with Claude Code itself are absent from every
 shard. Verified missing: `simplify`, `security-review`, `dataviz`,
@@ -38,7 +67,7 @@ tier should read — they are enabled, but not via a plugin manifest.
 **What happens.** `catalog/uncategorized.md` holds two entries, and they are the
 same skill twice:
 
-```
+```text
 ## frontend-design@plugin [searchable]
 - path: .../claude-plugins-official/frontend-design/unknown/skills/frontend-design/SKILL.md
 

@@ -98,6 +98,82 @@ class TestDiscovery(unittest.TestCase):
             self.assertEqual(naive, 12)
 
 
+class TestBuiltins(unittest.TestCase):
+    """The fourth discovery root (DESIGN-ISSUES issue 1): built-ins ship
+    inside the Claude Code binary, so they come from the vendored manifest."""
+
+    def _discover(self, sandbox, **kwargs):
+        atlas_paths.set_scope(sandbox.project_dir)
+        return atlas_discovery.discover(**kwargs)
+
+    def test_absent_manifest_means_no_builtins(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            result = self._discover(sandbox)
+            self.assertEqual([s for s in result["skills"]
+                              if s["scope"] == "builtin"], [])
+
+    def test_builtin_record_shape(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_builtins(
+                sandbox,
+                {"name": "code-review", "description": "Review the diff."},
+                {"name": "dataviz", "description": "Chart guidance."})
+            result = self._discover(sandbox)
+            builtins = {s["id"]: s for s in result["skills"]
+                        if s["scope"] == "builtin"}
+            self.assertEqual(sorted(builtins), ["code-review", "dataviz"])
+            record = builtins["code-review"]
+            self.assertIsNone(record["path"])       # nothing on disk to read
+            self.assertTrue(record["enabled"])      # always session-loaded
+            self.assertTrue(record["registered"])
+            self.assertIsNone(record["plugin"])
+            self.assertEqual(record["description"], "Review the diff.")
+
+    def test_name_collision_with_user_skill_surfaced(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_builtins(sandbox, {"name": "plain-skill",
+                                             "description": "Shadowed."})
+            result = self._discover(sandbox)
+            self.assertIn("plain-skill", result["duplicate_names"])
+            dupes = sorted(s["id"] for s in result["skills"]
+                           if s.get("duplicate") and s["name"] == "plain-skill")
+            self.assertEqual(dupes, ["plain-skill@builtin", "plain-skill@user"])
+
+    def test_light_mode_agrees_and_fingerprint_paths_skip_builtins(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_builtins(sandbox, {"name": "loop",
+                                             "description": "Recurring runs."})
+            full = self._discover(sandbox)
+            light = self._discover(sandbox, light=True)
+            self.assertEqual([s["id"] for s in full["skills"]],
+                             [s["id"] for s in light["skills"]])
+            # No None paths in the fingerprint input; change detection for
+            # built-ins rides on the manifest side instead.
+            paths = atlas_discovery.skill_md_paths()
+            self.assertTrue(all(str(p) for p in paths))
+            self.assertNotIn(None, [str(p) for p in paths])
+            self.assertIn(atlas_paths.builtins_path(),
+                          atlas_paths.manifest_paths())
+
+    def test_malformed_manifest_yields_no_builtins(self):
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            baseline = len(self._discover(sandbox)["skills"])
+            for raw in ("not json at all", '["a", "list"]',
+                        '{"skills": "nope"}', '{"skills": [42, {"x": 1}]}'):
+                helpers.write_builtins(sandbox, raw=raw)
+                result = self._discover(sandbox)
+                self.assertEqual(len(result["skills"]), baseline, raw)
+
+    def test_shipped_manifest_is_valid(self):
+        """The vendored file itself: parseable, unique names, descriptions."""
+        import json
+        shipped = helpers.SCRIPTS / "builtin_skills.json"
+        data = json.loads(shipped.read_text(encoding="utf-8"))
+        names = [s["name"] for s in data["skills"]]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertTrue(all(s.get("description") for s in data["skills"]))
+
+
 class TestFrontmatter(unittest.TestCase):
     def test_plain_quoted_and_block_values(self):
         parse = atlas_discovery.parse_frontmatter

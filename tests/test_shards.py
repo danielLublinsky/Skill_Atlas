@@ -64,6 +64,19 @@ class TestShards(unittest.TestCase):
             self.assertRegex(_index(), r"eng\(3\)")
             self.assertRegex(_index(), r"uncategorized\(3\)")
 
+    def test_builtin_renders_enabled_without_path_line(self):
+        # DESIGN-ISSUES issue 1: built-ins enter the catalog as [enabled]
+        # (natively invocable) with no path — there is no SKILL.md to Read.
+        with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
+            helpers.write_builtins(sandbox, {"name": "loop",
+                                             "description": "Recurring runs."})
+            _build()
+            uncat = _shard("uncategorized")
+            self.assertIn("## loop [enabled]", uncat)
+            self.assertIn("- built-in: ships with Claude Code, no file on disk",
+                          uncat)
+            self.assertNotIn("path: None", uncat)
+
     def test_empty_categories_still_searchable(self):
         # §4.5 commitment: search works against an empty categories.json —
         # everything lands in the always-present uncategorized shard.

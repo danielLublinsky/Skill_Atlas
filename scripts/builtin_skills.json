@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "as_of": "Claude Code 2.1.227",
+  "_comment": "Curated list of skills that ship inside the Claude Code binary itself — no SKILL.md on disk, no plugin manifest, so discovery cannot find them by walking anything (DESIGN-ISSUES issue 1). Descriptions are trimmed from the shipped skills' own descriptions. Update this file when Claude Code adds or renames built-ins; discovery treats a missing or malformed file as 'no built-ins', never as an error.",
+  "skills": [
+    {
+      "name": "artifact-capabilities",
+      "description": "Runtime capabilities a published Artifact page can be granted — reading live or connected data, state shared across viewers, self-updating pages — with the live capability roster and typed call definitions."
+    },
+    {
+      "name": "artifact-design",
+      "description": "Design guidance and fundamentals for Artifacts (published web pages): how much design investment a page warrants and how to execute it."
+    },
+    {
+      "name": "artifact-diagramming",
+      "description": "Diagramming know-how for Artifacts — when a picture earns its place, how to draw the real mechanism, and the inline-SVG mechanics that keep it legible in both themes."
+    },
+    {
+      "name": "claude-api",
+      "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, prompt caching, token counting, model migration. Read before answering any LLM pricing/model/limits question or writing provider-unstated LLM code."
+    },
+    {
+      "name": "code-review",
+      "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs and reuse/simplification/efficiency cleanups at a chosen effort level (low through max, plus ultra multi-agent cloud review). --comment posts findings as inline PR comments; --fix applies them to the working tree."
+    },
+    {
+      "name": "dataviz",
+      "description": "Read before creating ANY chart, graph, plot, dashboard or data visualization in any medium — HTML/React artifacts, inline SVG, matplotlib, plotly, d3, Recharts, rendered images. Form heuristics, a validated color formula and palette, mark specs, and interaction rules that read as one system."
+    },
+    {
+      "name": "fewer-permission-prompts",
+      "description": "Scan transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+    },
+    {
+      "name": "init",
+      "description": "Initialize a new CLAUDE.md file with codebase documentation."
+    },
+    {
+      "name": "keybindings-help",
+      "description": "Customize Claude Code keyboard shortcuts: rebind keys, add chord bindings, change the submit key, modify ~/.claude/keybindings.json."
+    },
+    {
+      "name": "loop",
+      "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo), or let the model self-pace — recurring tasks, status polling, babysitting long-running work. Not for one-off tasks."
+    },
+    {
+      "name": "run",
+      "description": "Launch and drive this project's app to see a change working — run, start, or screenshot the app, or confirm a change works in the real app (not just tests)."
+    },
+    {
+      "name": "schedule",
+      "description": "Create, update, list, or run scheduled cloud agents (routines) that execute on a cron schedule, including one-time scheduled runs (\"run this once at 3pm\")."
+    },
+    {
+      "name": "security-review",
+      "description": "Complete a security review of the pending changes on the current branch."
+    },
+    {
+      "name": "simplify",
+      "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — does not hunt for bugs."
+    },
+    {
+      "name": "update-config",
+      "description": "Configure the Claude Code harness via settings.json: hooks for automated \"whenever X\" behaviors, permissions and allowlists, env vars, and hook troubleshooting in settings.json/settings.local.json."
+    }
+  ]
+}

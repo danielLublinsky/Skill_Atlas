@@ -121,6 +121,15 @@ def installed_plugins_path() -> Path:
     return claude_dir() / "plugins" / "installed_plugins.json"
 
 
+def builtins_path() -> Path:
+    """The vendored manifest of Claude Code's built-in skills. Built-ins
+    ship inside the Claude Code binary — no SKILL.md on disk, no plugin
+    manifest entry — so discovery reads this curated list instead
+    (DESIGN-ISSUES issue 1). The env override is the testability seam."""
+    return _env_path("SKILL_ATLAS_BUILTINS",
+                     Path(__file__).resolve().parent / "builtin_skills.json")
+
+
 def settings_paths() -> list:
     """All settings files that may carry enabledPlugins, lowest precedence
     first: user level, then this scope's own .claude (when distinct)."""
@@ -188,8 +197,8 @@ def manifest_paths() -> list:
     this scope's curated categories.json / config.json must not leave the
     graph silently stale; absence hashes as "|missing", so a file's first
     appearance flips the fingerprint too."""
-    paths = [installed_plugins_path(), categories_path(), config_path()] \
-        + settings_paths()
+    paths = [installed_plugins_path(), builtins_path(), categories_path(),
+             config_path()] + settings_paths()
     try:
         for record in installed_plugins():
             paths.append(record["install_path"] / ".claude-plugin" / "plugin.json")

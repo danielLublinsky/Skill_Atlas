@@ -65,7 +65,12 @@ def _shard_text(title, note, members, home_category=None) -> str:
         stale = " (stale)" if node.get("category_stale") else ""
         lines.append(f"## {node['id']} [{_tier(node)}]{stale}")
         lines.append((node.get("description") or "(no description)").strip())
-        lines.append(f"- path: {node.get('path')}")
+        if node.get("path"):
+            lines.append(f"- path: {node.get('path')}")
+        else:
+            # Built-ins ship inside the Claude Code binary — nothing to Read;
+            # [enabled] already tells the reader to invoke via the Skill tool.
+            lines.append("- built-in: ships with Claude Code, no file on disk")
         others = [c for c in node.get("categories") or [] if c != home_category]
         if others:
             lines.append(f"- also in: {', '.join(others)}")

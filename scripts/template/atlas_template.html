@@ -23,6 +23,7 @@
     --scope-user: #2a78d6;
     --scope-project: #eb6834;
     --scope-plugin: #1baf7a;
+    --scope-builtin: #0f8fa8;
     --critical: #d03b3b;
     --warn: #b58a2a;
     --tier-searchable: #8a5cd6;
@@ -44,6 +45,7 @@
       --scope-user: #3987e5;
       --scope-project: #d95926;
       --scope-plugin: #199e70;
+      --scope-builtin: #1aa4bd;
       --critical: #d03b3b;
       --warn: #d9a83a;
       --tier-searchable: #9b6ef0;
@@ -62,6 +64,7 @@
     --scope-user: #3987e5;
     --scope-project: #d95926;
     --scope-plugin: #199e70;
+    --scope-builtin: #1aa4bd;
     --critical: #d03b3b;
     --warn: #d9a83a;
     --tier-searchable: #9b6ef0;
@@ -344,7 +347,7 @@ function hashCode(str) {
 /* ---------------------------- model building ---------------------------- */
 const SCOPE_COLOR = {
   user: "var(--scope-user)", project: "var(--scope-project)",
-  plugin: "var(--scope-plugin)",
+  plugin: "var(--scope-plugin)", builtin: "var(--scope-builtin)",
 };
 /* filter group of a primary skill node: its plugin, or its scope for
    user/project skills */
@@ -506,7 +509,7 @@ document.getElementById("theme").addEventListener("click", () => {
    view that can't produce them. Re-rendered on every tab switch. */
 function renderLegend() {
   const el = document.getElementById("legend");
-  const scopeRows = ["user", "project", "plugin"].map(s =>
+  const scopeRows = ["user", "project", "plugin", "builtin"].map(s =>
     `<div class="row"><span class="swatch" style="background:${SCOPE_COLOR[s]}"></span>${s}</div>`).join("");
 
   if (isCategoryView()) {

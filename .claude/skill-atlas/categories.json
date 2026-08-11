@@ -1,5 +1,36 @@
 {
   "assignments": {
+    "artifact-capabilities": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "platform-frontend-conventions"
+      ],
+      "desc_hash": "sha256:44145c5be905e324628cf91ab8682328f169e7bf778ae2b5a3aa1a4bbbe298b1"
+    },
+    "artifact-design": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "design-and-architecture",
+        "platform-frontend-conventions"
+      ],
+      "desc_hash": "sha256:2831812897a942f8eabbae43ed6988640f87db20b33b9a7db1ff36299926da6c"
+    },
+    "artifact-diagramming": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "explaining-and-handoff",
+        "platform-frontend-conventions"
+      ],
+      "desc_hash": "sha256:b69537eb8c78b1a365c1795e33847d99290da30e09e87fa6a6676084634c58c9"
+    },
+    "claude-api": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "research-and-codebase-understanding",
+        "implementation"
+      ],
+      "desc_hash": "sha256:2d6d6f346b9ca568a6e07af952e1c1babd0135cd00a8571d3b3c4de0ef523b87"
+    },
     "claude-code-setup:claude-automation-recommender": {
       "assigned_at": "2026-08-10",
       "categories": [
@@ -15,6 +46,28 @@
       ],
       "desc_hash": "sha256:983b0daec178f0ee6150697eec3126dfcd762355dcb84e28228c9fd933f096d6"
     },
+    "code-review": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "code-review"
+      ],
+      "desc_hash": "sha256:2e08a773688b5674d74b779bd05f7e82ce43fc1782b6575d51929e618ff35a79"
+    },
+    "dataviz": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "design-and-architecture",
+        "explaining-and-handoff"
+      ],
+      "desc_hash": "sha256:7b17059bdbbf0832ff45aff45a084076194ed50c4c504cfc65b117efe347f05a"
+    },
+    "fewer-permission-prompts": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:77998c14786350e02d59d4185d00df72436f5c341f76c89a9e6cf1813d715533"
+    },
     "frontend-design:frontend-design": {
       "assigned_at": "2026-08-10",
       "categories": [
@@ -28,6 +81,20 @@
         "research-and-codebase-understanding"
       ],
       "desc_hash": "sha256:7d9300903d86002b3716416aee18fbe92beeee3620103dae11973b16dd48a710"
+    },
+    "init": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "agent-authoring"
+      ],
+      "desc_hash": "sha256:f4e6680157d2b63fd74b07d357d18f39a6a2110df5e35058dab480d401be1919"
+    },
+    "keybindings-help": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:c54a5bf92bc565ae78e829cd46d52975334d016af825f872bfc4cdf5426027a6"
     },
     "liquid-skills:liquid-theme-a11y": {
       "assigned_at": "2026-08-10",
@@ -49,6 +116,13 @@
         "platform-frontend-conventions"
       ],
       "desc_hash": "sha256:114340d05d8797f1cf44f639feddf6ef2c8d4eca3f0a5eca055bf8cd6a92279d"
+    },
+    "loop": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:b70ea2022db706dd69f478ff2d9e7c80425f0eb22d2655ea01610990a80a1817"
     },
     "mattpocock-skills:ask-matt": {
       "assigned_at": "2026-08-10",
@@ -244,6 +318,34 @@
       ],
       "desc_hash": "sha256:867de2484cd5a21632829aacc053282b709a9448d654482dfa6a19b79c40ebb6"
     },
+    "run": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "testing-and-verification"
+      ],
+      "desc_hash": "sha256:62cd2252a31208868ac3f9dcd7ec5633ff03b1ba554943cdcaed073ee54d5539"
+    },
+    "schedule": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:58116ec05f585d4d4f4ed06cb9757855066d948e1f86ab351e0309627f56d0bb"
+    },
+    "security-review": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "code-review"
+      ],
+      "desc_hash": "sha256:71667316b63a655f2a6de31736c87f1178bc573320520412a7b5e04e8f6f9e90"
+    },
+    "simplify": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "code-review"
+      ],
+      "desc_hash": "sha256:db9b6c5b39adb5525e08c6eeaed1cd816e2d79b29ca88a760a3593fbe55e4682"
+    },
     "skill-atlas:skill-atlas": {
       "assigned_at": "2026-08-10",
       "categories": [
@@ -377,6 +479,13 @@
         "research-and-codebase-understanding"
       ],
       "desc_hash": "sha256:4ee29421eb76a7e806835f13ba13da898830ddac0c48b29aba5118a69aa45348"
+    },
+    "update-config": {
+      "assigned_at": "2026-08-11",
+      "categories": [
+        "tooling-and-environment-setup"
+      ],
+      "desc_hash": "sha256:0cee3b69019f1e0a8950e905b86bec3d4baffccdaeb4574e838cd1c4023eae50"
     }
   },
   "taxonomy": [

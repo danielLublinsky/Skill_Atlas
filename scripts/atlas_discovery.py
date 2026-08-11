@@ -3,8 +3,9 @@
 "Any directory containing SKILL.md" over-counts by ~60% on a real machine, so
 discovery starts from manifests: installed_plugins.json → each plugin.json's
 skills[] allowlist (flat glob fallback when the key is absent) → the user and
-project skill roots. The marketplace catalogue and stale cached plugin
-versions are never walked; installPath is the only ground truth.
+project skill roots → the vendored built-in manifest. The marketplace
+catalogue and stale cached plugin versions are never walked; installPath is
+the only ground truth.
 
 Enabled state is an attribute, not a filter — a disabled skill still enters
 the graph (the author's most-invoked plugin was disabled when this was
@@ -105,13 +106,53 @@ def _root_skill_dirs(root: Path):
             yield child / "SKILL.md"
 
 
+def _builtin_records() -> list:
+    """Fourth root (DESIGN-ISSUES issue 1): skills that ship inside the
+    Claude Code binary itself. They exist under no walkable directory and in
+    no plugin manifest, so they come from the vendored builtin_skills.json —
+    curated data, updated with skill-atlas releases. Records carry
+    path=None (every downstream stage skips file work on path-less records)
+    and enabled=True: built-ins are always session-loaded and natively
+    invocable, so their tier reads [enabled]. A missing or malformed
+    manifest yields no built-ins rather than an error — the file ships with
+    skill-atlas, so absence is a trimmed install, not a broken environment."""
+    try:
+        data = json.loads(
+            atlas_paths.builtins_path().read_text(encoding="utf-8"))
+        entries = data.get("skills", [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    records = []
+    if not isinstance(entries, list):
+        return records
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("name"):
+            continue
+        records.append({
+            "id": None,  # assigned after collision resolution
+            "type": "skill",
+            "name": entry["name"],
+            "description": entry.get("description"),
+            "path": None,
+            "scope": "builtin",
+            "plugin": None,
+            "plugin_key": None,
+            "marketplace": None,
+            "version": None,
+            "registered": True,
+            "enabled": True,
+        })
+    return records
+
+
 def discover(light=False) -> dict:
     """Walk order: user root → the scope's own skills root → installed
-    plugins (allowlist or flat glob). Returns registered skills, the
-    unregistered index, collision info and the plugin records. light=True
-    skips all file reads (stat/paths only) — the fingerprint uses it, so
-    enumeration logic cannot drift between staleness checking and
-    building."""
+    plugins (allowlist or flat glob) → built-ins from the vendored
+    manifest. Returns registered skills, the unregistered index, collision
+    info and the plugin records. light=True skips all file reads on skill
+    trees (stat/paths only) — the fingerprint uses it, so enumeration logic
+    cannot drift between staleness checking and building. Built-in records
+    have no files to read, so they are identical in both modes."""
     enabled_map = atlas_paths.merged_enabled_plugins()
     skills = []
     unregistered = []
@@ -176,6 +217,11 @@ def discover(light=False) -> dict:
         except OSError:
             pass
 
+    # Built-ins come last: they are the substrate every on-disk skill sits
+    # on top of, and a name shared with one is surfaced as a collision
+    # below, never silently resolved in either direction.
+    skills.extend(_builtin_records())
+
     duplicate_names = _assign_ids(skills)
     return {
         "skills": skills,
@@ -211,9 +257,12 @@ def _assign_ids(skills) -> list:
 
 def skill_md_paths() -> list:
     """Every SKILL.md the graph depends on (registered + unregistered index),
-    with no file reads — the §5.1 fingerprint input."""
+    with no file reads — the §5.1 fingerprint input. Built-ins have no file
+    (path=None) and are covered by the manifest side of the fingerprint
+    instead: builtins_path() is in atlas_paths.manifest_paths()."""
     result = discover(light=True)
-    return [Path(s["path"]) for s in result["skills"] + result["unregistered"]]
+    return [Path(s["path"]) for s in result["skills"] + result["unregistered"]
+            if s.get("path")]
 
 
 def naive_skillmd_count() -> int:

@@ -18,6 +18,7 @@ if str(SCRIPTS) not in sys.path:
 ENV_VARS = [
     "SKILL_ATLAS_CLAUDE_DIR",
     "SKILL_ATLAS_AUTOBUILD",
+    "SKILL_ATLAS_BUILTINS",
 ]
 
 # Fixture manifests use this placeholder for absolute install paths; the
@@ -52,6 +53,10 @@ class EnvSandbox:
             self.claude.mkdir()
         os.environ["SKILL_ATLAS_CLAUDE_DIR"] = str(self.claude)
         os.environ.pop("SKILL_ATLAS_AUTOBUILD", None)
+        # Point the built-in manifest at a nonexistent sandbox path so the
+        # fixture collection stays exactly the fixtures; builtin tests plant
+        # a manifest there via write_builtins().
+        os.environ["SKILL_ATLAS_BUILTINS"] = str(self.tmp / "builtin_skills.json")
         self._saved_scope = atlas_paths._scope
         atlas_paths.set_scope(self.tmp)
         return self
@@ -159,3 +164,16 @@ def write_config(sandbox, obj, cwd=None) -> None:
 
 def searchable_config(*plugins) -> dict:
     return {"version": 1, "searchable_plugins": list(plugins)}
+
+
+def write_builtins(sandbox, *skills, raw=None) -> None:
+    """Plant a built-in manifest at the sandbox's SKILL_ATLAS_BUILTINS path
+    (nonexistent by default — no built-ins). Each skill is a {name,
+    description} dict; raw plants arbitrary text for malformed-file tests."""
+    import json
+    path = Path(os.environ["SKILL_ATLAS_BUILTINS"])
+    if raw is not None:
+        path.write_text(raw, encoding="utf-8")
+    else:
+        path.write_text(json.dumps({"version": 1, "skills": list(skills)}),
+                        encoding="utf-8")
