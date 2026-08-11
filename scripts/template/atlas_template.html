@@ -1279,8 +1279,17 @@ function drawGraph() {
       edgeSel.classed("dim", true).classed("hot", false);
       return;
     }
-    nodeSel.classed("dim", d => d.type === "cat" ? false :
-      !(d.name.toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q) || d.id.toLowerCase().includes(q)));
+    /* hubs are filtered by the same query as everything else. Their searchable
+       text is the category name plus its frozen taxonomy description — the
+       same words the hub's own tooltip shows, so what you can read is what you
+       can search. */
+    const hubText = d =>
+      (d.name + " " + (CATEGORY_DESC.get(d.name) || "")).toLowerCase();
+    nodeSel.classed("dim", d => d.type === "cat"
+      ? !hubText(d).includes(q)
+      : !(d.name.toLowerCase().includes(q) ||
+          (d.description || "").toLowerCase().includes(q) ||
+          d.id.toLowerCase().includes(q)));
     edgeSel.classed("dim", true).classed("hot", false);
   }
   ctl.search.oninput = applySearch;
