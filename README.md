@@ -143,6 +143,22 @@ get duplicate names, orphans, and an exit code to gate CI on.
 **scope** (origin, state, breakage in red) and **categories** (hub-and-spoke — solid
 edge to the home category, dashed to the rest; search `cat:<name>` to isolate).
 
+## 🛠️ Building and debugging skills
+
+Most skill bugs reduce to one question: *what did Claude actually load?* The atlas
+shows that, rather than what you assume is installed.
+
+![Debugging a skill in the atlas](assets/atlas-markdown.png)
+
+- **What's really registered** — discovery is manifest-driven, so unregistered copies
+  and stale plugin caches surface as their own nodes instead of quietly counting.
+- **Broken bundles** — a `references` edge whose file isn't on disk draws red, so a
+  typo'd `references/foo.md` is visible without opening anything.
+- **Why it didn't trigger** — tier is the node's fill (enabled · searchable ·
+  disabled), and duplicate names are called out in the footer with both nodes drawn.
+- **Read it in place** — pin any skill or bundled file and hit **open markdown** to
+  read the source in a popup without leaving the graph.
+
 ## 📦 State
 
 All project-local, in `./.claude/skill-atlas/`.
