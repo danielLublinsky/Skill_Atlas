@@ -1,17 +1,8 @@
-# Claude Code local state — the curated skill-atlas files are re-included
-# below (`.claude/*`, not `.claude/`: git cannot re-include anything under
-# a directory ignored with a trailing-slash pattern).
-.claude/*
-!.claude/skill-atlas/
-.claude/skill-atlas/*
-!.claude/skill-atlas/.gitignore
-!.claude/skill-atlas/categories.json
-!.claude/skill-atlas/config.json
-!.claude/skills/
-.claude/skills/*
-!.claude/skills/search-skill-test/
-.claude/skills/search-skill-test/*
-!.claude/skills/search-skill-test/SKILL.md
+# Claude Code local state — untracked entirely (2026-08-14). This repo's own
+# `.claude/skill-atlas/` scope is machine-local: graph, atlas, catalog shards
+# and debug log are derived, and `categories.json` / `config.json` are curated
+# per scope and re-bootstrap on the next /skill-atlas run.
+.claude/
 
 # Python
 __pycache__/

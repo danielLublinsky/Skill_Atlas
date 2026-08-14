@@ -1,7 +1,0 @@
-# derived by skill-atlas — these are caches, safe to delete.
-# Commit categories.json (curated) and config.json (per-scope opt-in).
-graph.json
-atlas.html
-catalog/
-graph.dirty
-debug.log
