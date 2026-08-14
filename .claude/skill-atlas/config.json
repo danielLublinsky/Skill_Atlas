@@ -1,0 +1,12 @@
+{
+  "searchable_plugins": [
+    "mattpocock-skills",
+    "superpowers",
+    "liquid-skills",
+    "frontend-design",
+    "ui-theme-designer",
+    "claude-md-management",
+    "skill-creator"
+  ],
+  "version": 1
+}
