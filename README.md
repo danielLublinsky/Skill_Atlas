@@ -12,6 +12,8 @@ Search a graph of your collection instead of preloading it.
 <sub>53 skills, 6 kept enabled: **2,544 → 338 tokens per session (−86.7%)**. The other
 47 cost nothing until asked for.</sub>
 
+[![CI](https://github.com/danielLublinsky/Skill_Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/danielLublinsky/Skill_Atlas/actions/workflows/ci.yml)
+
 </div>
 
 ![The atlas, scope view](assets/atlas-scope.png)

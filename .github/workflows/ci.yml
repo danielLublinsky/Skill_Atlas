@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: tests · python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # No dependencies and no venv — the suite is stdlib-only, so the
+        # matrix is the only thing that tells us the real supported floor.
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Unit suite (fixtures only — never touches a real ~/.claude)
+        run: make test
+
+  build:
+    name: build + render against a fixture home
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build a graph from the fixture tree
+        env:
+          SKILL_ATLAS_CLAUDE_DIR: tests/fixtures/fakehome
+        run: |
+          python3 scripts/build_graph.py; status=$?
+          # exit 1 means "built, with dangling references found" — that is the
+          # tool reporting on its inputs, not a build failure. Only 2 is fatal.
+          if [ $status -eq 2 ]; then exit 2; fi
+
+      - name: Render the atlas
+        env:
+          SKILL_ATLAS_CLAUDE_DIR: tests/fixtures/fakehome
+        run: python3 scripts/render.py
+
+      - name: Assert the output is self-contained
+        run: |
+          html=$(find . -name atlas.html -not -path './.git/*' | head -1)
+          test -n "$html" || { echo "no atlas.html produced"; exit 1; }
+          # The whole point of the renderer: opens from file:// with no network.
+          if grep -qE '<script[^>]+src=|<link[^>]+href="https?:' "$html"; then
+            echo "atlas.html references an external resource"; exit 1
+          fi
+          grep -q "Copyright 2010-2023 Mike Bostock" "$html" \
+            || { echo "vendored D3 notice missing from output"; exit 1; }
+          echo "ok: $(wc -c < "$html") bytes, no external references"
