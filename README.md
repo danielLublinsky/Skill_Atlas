@@ -71,21 +71,21 @@ A **searchable** skill is dormant — its description never enters your context,
 it stays discoverable on demand. All that advertises the whole dormant tier is one
 ~50-token line at session start.
 
-## 🔍 Search reads two files — never the catalog
+## 🔍 Search reads two files, not the catalog
 
 ```mermaid
 flowchart LR
     A(["🧭 a task arrives<br/><i>“resolve this merge conflict”</i>"])
 
-    subgraph R1["1️⃣ read the index · ~1k tok"]
+    subgraph R1["1️⃣ read the index · ~1.6k tok"]
         I["<b>_index.md</b> — 14 lines<br/><i>name · count · what it covers · member tokens</i>"]
     end
 
-    subgraph R2["2️⃣ read one shard · ~0.5k tok"]
+    subgraph R2["2️⃣ read one shard · ~0.6k tok"]
         S["<b>version-control.md</b><br/>using-git-worktrees<br/>resolving-merge-conflicts ← hit"]
     end
 
-    X["the other 13 shards<br/><i>~6.8k tok · never opened</i>"]
+    X["the other 13 shards<br/><i>~10k tok · never opened</i>"]
 
     A --> I
     I -- "pick ONE category" --> S
@@ -107,11 +107,20 @@ flowchart LR
     style R2 fill:#3987e514,stroke:#3987e5,stroke-width:1.5px
 ```
 
-**Two reads, ~1.5k tokens — against the ~8.3k the flat catalog would cost**, and
-paid only when a search actually happens. Counts overlap on purpose, so the pick
-doesn't have to land on *the* right bucket, only *a* right one. Tier-off skills are
-excluded when shards are written, so a disabled plugin can never return through a
-side door.
+**A search costs ~2.4k tokens** — the index (1.6k), one shard (~0.6k) and the
+search skill itself (0.4k) — **and you pay it only when a search happens.** The
+alternative it replaces is every dormant description sitting in context from
+session start, billed whether you search or not. The arbitrage is real when
+searches are occasional; it is not free, and the numbers above are measured
+rather than estimated.
+
+One shard is the norm. A second is opened only when the entry you found lists a
+category you haven't read — the catalog pointing, not the model guessing — and
+never a third. Counts overlap on purpose, so the pick doesn't have to land on
+*the* right bucket, only *a* right one. Tier-off skills are excluded when shards
+are written, so a disabled plugin can never return through a side door. The
+result is announced in one line before the work continues: search is a lookup
+inside a task, not a deliverable.
 
 **The model categorizes once.** The first run drafts 8–12 categories named for
 *user-intent task shapes*, not products, then freezes the taxonomy. Later runs only
@@ -164,3 +173,11 @@ edge to the home category, dashed to the rest; search `cat:<name>` to isolate).
 
 [**DESIGN.md**](DESIGN.md) — the historical record for both phases: what was
 considered, what was chosen, what was dropped, and why
+
+## ⚖️ License
+
+Apache-2.0 — see [LICENSE](LICENSE).
+
+D3 is vendored in [vendor/d3.v7.min.js](vendor/d3.v7.min.js) and inlined into
+every generated `atlas.html`. It is ISC-licensed, © 2010-2023 Mike Bostock —
+see [vendor/LICENSE-d3](vendor/LICENSE-d3).
