@@ -8,8 +8,8 @@ description: >
   building UI, handling data or config — even when no loaded skill seems
   relevant and even when the user does not name a tool or domain: the
   library usually holds a specialist that stays invisible until searched.
-  Returns ranked matches with descriptions, paths and usage: invoke
-  enabled matches with the Skill tool; for dormant matches, read the
+  Also use when asked whether a skill exists for something. Returns one
+  match: invoke it with the Skill tool if enabled, otherwise read the
   SKILL.md at the returned path and follow it. Skip only for trivial
   one-step requests, or when an already-loaded skill obviously covers
   the task.
@@ -17,51 +17,40 @@ description: >
 
 # skill-search
 
-Two-stage search over the skill catalog. Total budget: the index plus at
-most two shards — never read the whole catalog.
+Read `_index.md`, then **one** shard, from `./.claude/skill-atlas/catalog/`
+(cwd-relative). Missing → say search is unavailable, suggest `/skill-atlas`,
+work without a skill; never use another directory's catalog.
 
-## Locate the catalog
+## 1 — category
 
-`./.claude/skill-atlas/catalog/` — relative to the current working
-directory; the catalog is fully project-local. If `catalog/_index.md` does
-not exist here, this directory has no atlas yet: say search is unavailable,
-suggest running `/skill-atlas` (which initializes it), and proceed without
-a skill. Never fall back to another directory's catalog.
+Index lines are `name(count) — description — tokens`. The description decides;
+its `…; see <other>` carve-out is the strongest signal — treat it as routing.
+Tokens only corroborate: the list truncates, so a hit favours a category and a
+miss proves nothing. Counts overlap; *a* right bucket suffices.
 
-## Stage 1 — pick a category
+## 2 — shard
 
-Read `catalog/_index.md` ONLY (~10 lines). Each line is
-`name(count) — what the category covers — concrete member tokens`. Match the
-task against the descriptions and tokens; pick ONE category — two at most.
-Counts overlap (a skill can live in several categories), so the pick doesn't
-have to be *the* right bucket, only *a* right one.
+Entries are `## <id> [enabled|searchable] (stale)`, description, path, and
+`also in:` — its other categories, where a sharper sibling may live. Prefer
+specific over broad; between near-identical entries take `[enabled]`, then the
+sharper description, silently.
 
-## Stage 2 — browse one shard
+A second shard only if the winner's `also in:` names an unread category, or
+nothing rose above weak. Never a third. `uncategorized.md` counts; serving from
+it, say so and suggest `/skill-atlas`.
 
-Read `catalog/<category>.md` ONLY. Entries are
-`## <id> [enabled|searchable]` + description + path. Rank against the task
-and return the top 1–3 matches with id, description, path and tier. When two
-results are near-identical, present them side by side and say so — surfacing
-duplicates at decision time is a feature.
+## 3 — name it, then work
 
-## Using a result
+One line, then continue the task in the same turn:
+`Using <id>.` — or `No skill fits — proceeding without one.`
 
-- **[enabled]** — invoke it natively with the Skill tool.
-- **[searchable]** — the skill is dormant: Read the SKILL.md at the listed
-  path and follow it as plain instructions. Frontmatter `allowed-tools`
-  enforcement and auto-triggering do NOT apply on this path; apply judgment.
-- Never hunt for SKILL.md files outside `catalog/` — a skill absent from
-  every shard is disabled by choice and must not come back through a side
-  door.
+Nothing else, ever: never narrate the search, name a category or shard, list
+runners-up, echo a path, announce intent, ask permission, or summarise after.
+Reading a `[searchable]` SKILL.md is internal work.
 
-## The uncategorized shard
+## Using it
 
-When no category fits, or the index shows a nonzero `uncategorized(N)` worth
-checking, read `catalog/uncategorized.md` — note it may be large. Whenever
-you serve a result from it, say so and suggest running `/skill-atlas` to
-file the stragglers.
-
-## No match
-
-A first-class answer: say no skill fits and proceed without one. Never force
-a fit.
+`[enabled]` → Skill tool. `[searchable]` → Read that path and follow it as
+plain instructions; `allowed-tools` and auto-triggering do not apply. Never
+look outside `catalog/` — absent from every shard means disabled by choice, and
+"no skill fits" is a first-class answer. Never force one.

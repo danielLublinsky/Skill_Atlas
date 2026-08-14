@@ -175,9 +175,27 @@ their under-homed assignments until the planned category-control command
 lands (the taxonomy/assignment data is model-generated and frozen by design —
 no hand-repair path).
 
-Related probe findings, same run, not fixed here: index token lists lead with
-plugin names and truncate real skill names past `TOKEN_BUDGET_CHARS`
-(`update-config` invisible in the `tooling-and-environment-setup` line);
-generically-named vendor-locked `ui-theme-designer` tokens bait a wasted
-shard read; near-duplicate skills surface with no tiebreaker between their
-one-line descriptions.
+Related probe findings, same run. Each was revisited on 2026-08-14 and
+disposed of:
+
+- **Index token lists truncate real skill names.** Confirmed and *accepted*.
+  Plugin names are emitted first, `mattpocock-skills` occupies a slot on 10 of
+  12 lines and `superpowers` on 7, and four lines hit `TOKEN_BUDGET_CHARS` —
+  `update-config`, `setup-matt-pocock-skills` and `wizard` are invisible in the
+  `tooling-and-environment-config` line. Every fix was measured against the
+  live graph: dropping plugin names saves 48 tokens, keeping them and raising
+  the cap to 320 costs 52, keeping only single-category plugin names saves 39 —
+  a ~100-token spread on a ~2,400-token search. Judged not worth changing the
+  emitter. `skill-search` compensates instead: its stage-1 rule now defines a
+  token-list *miss* as evidence of nothing, so a truncated name cannot cause a
+  wrong route.
+- **Vendor-locked `ui-theme-designer` tokens bait a wasted shard read.** **Not
+  reproduced — this claim is false as of 2026-08-14.** All five `liquid-*` and
+  `ui-theme-designer-*` skills sit in `vendor-platform-frontends` and appear in
+  no other shard. The multi-homing rules added above appear to have resolved it.
+- **Near-duplicate skills have no tiebreaker.** Fixed in `skill-search`, though
+  not the way originally implied. The one-line output contract makes presenting
+  duplicates side by side impossible, so the skill now resolves them silently:
+  `[enabled]` over `[searchable]`, then the more specific description. The
+  underlying descriptions are unchanged — this is a decision rule, not better
+  data.
