@@ -23,12 +23,23 @@ Search a graph of your collection instead of preloading it.
 ## ⚡ Install
 
 ```bash
+claude plugin marketplace add danielLublinsky/Skill_Atlas
+claude plugin install skill-atlas@skill-atlas
+```
+
+Python 3 only — no dependencies, no network (d3 is vendored). Later:
+`claude plugin update skill-atlas@skill-atlas`.
+
+<details>
+<summary>From a local clone (for hacking on it)</summary>
+
+```bash
 git clone https://github.com/danielLublinsky/Skill_Atlas.git
 claude plugin marketplace add ./Skill_Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 
-Python 3 only — no dependencies, no network (d3 is vendored).
+</details>
 
 ## ▶️ Run
 
