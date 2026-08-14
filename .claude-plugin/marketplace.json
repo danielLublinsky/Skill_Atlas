@@ -1,13 +1,35 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "skill-atlas",
+  "description": "Map, categorize and search your installed Claude Code skill collection.",
   "owner": {
-    "name": "danson"
+    "name": "daniel lublinsky",
+    "email": "daniellublinsky39@gmail.com"
   },
   "plugins": [
     {
       "name": "skill-atlas",
       "source": "./",
-      "description": "Graph and visualize your installed Claude Code skill collection."
+      "version": "0.5.0",
+      "description": "Map, categorize and search every skill installed on your machine. Builds a graph of the whole collection — what is actually loadable, what is switched off, what points at things that no longer exist, what is duplicated — and renders it as a self-contained offline HTML atlas. Adds a third tier between enabled and disabled: 'searchable' skills cost zero tokens per session but stay findable through a two-stage catalog search, so a large collection stops competing for context.",
+      "author": {
+        "name": "daniel lublinsky",
+        "url": "https://github.com/danielLublinsky"
+      },
+      "homepage": "https://github.com/danielLublinsky/Skill_Atlas",
+      "category": "productivity",
+      "keywords": [
+        "skills",
+        "catalog",
+        "search",
+        "graph",
+        "visualization",
+        "context",
+        "tokens",
+        "plugins",
+        "audit",
+        "d3"
+      ]
     }
   ]
 }
