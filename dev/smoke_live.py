@@ -134,7 +134,7 @@ def main() -> int:
     if not setup_nodes:
         print("  [SKIP] mattpocock-skills not installed — qa defect n/a")
     elif "`qa`" not in Path(setup_nodes[0]["path"]).read_text(encoding="utf-8"):
-        # The defect this tool found (§11.2) was fixed upstream in 1.2.2 —
+        # The defect this tool found (DESIGN §11.2) was fixed upstream in 1.2.2 —
         # the fixture twin still validates the mechanism.
         print("  [SKIP] qa defect fixed upstream — installed version has no `qa` mention")
     else:

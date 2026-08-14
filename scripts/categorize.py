@@ -2,7 +2,7 @@
 
 The model never free-hands curated state: every mutation flows through
 this CLI, which validates against the schema and the current graph before
-an atomic replace (DESIGN-PHASE2 §3.1, §4). Payload-taking subcommands read
+an atomic replace (DESIGN §13.1, §13.4). Payload-taking subcommands read
 JSON on stdin (heredoc-friendly under the command's Bash(python3:*) grant).
 
 Everything is scope-local: the directory this runs in (or --cwd) carries

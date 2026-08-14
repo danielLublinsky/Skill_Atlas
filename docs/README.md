@@ -17,14 +17,19 @@ straight to the component you are touching.
 | 9 | [testing & conventions](9-testing-and-conventions.md) | the suite, the sandbox, how to land a change |
 
 These docs describe **how the system works today** and the reasoning that is
-not visible in the code. The two design specs remain the historical record —
-what was considered, what was dropped, and why:
+not visible in the code. [DESIGN.md](../DESIGN.md) is the historical record for
+both phases — what was considered, what was chosen, what was dropped, and why.
+It is not a description of current behaviour. Sections worth knowing:
 
-- [DESIGN.md](../DESIGN.md) — Phase 1: graph, discovery, freshness, visualization.
-  §6 records the usage-tracking phase that was specified and then cut.
-- [DESIGN-PHASE2.md](../DESIGN-PHASE2.md) — Phase 2: the three-tier model,
-  categorization and search. **§0 amendments override its body text**;
-  amendment 8 (fully project-local) is the one that reshaped the most code.
+| § | Holds |
+| --- | --- |
+| 6 | usage tracking — fully specified, then cut, with the arithmetic that killed it |
+| 10.2 | the two standing privacy rules |
+| 10.4 | what is still open |
+| 11 | the four findings that justify the tool |
+| 12–14 | the three-tier model, categorization, catalog and search |
+| 15 | fully project-local — the decision that reshaped the most code |
+| 16 | what Phase 2 deliberately does not build |
 
-When a doc here disagrees with a design spec, the code wins and this folder is
-wrong — say so rather than propagating it.
+When a doc here disagrees with DESIGN.md, the doc wins; when the code disagrees
+with either, the code wins — say so rather than propagating it.

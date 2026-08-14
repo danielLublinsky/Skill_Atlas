@@ -1,6 +1,6 @@
 """build_graph.py — manifests + skill roots → graph.json (DESIGN §4).
 
-Exit codes (§4.2):
+Exit codes (DESIGN §4.2):
   0  graph built, nothing dangling
   1  graph built, ≥1 broken reference or dangling mention (CI gate)
   2  build failed (unreadable root, unparseable manifest, write error)
@@ -68,7 +68,7 @@ def build(cwd=None, naive_count=False) -> tuple:
     unregistered = discovery["unregistered"]
     plugin_names = {p["name"] for p in discovery["plugins"]}
 
-    # Phase 2 annotation (DESIGN-PHASE2 §3.3): categories, staleness and the
+    # Phase 2 annotation (DESIGN §13.3): categories, staleness and the
     # searchable tier ride every skill record from here on, so node assembly,
     # stats and the renderer see them for free. Curated-state schema
     # violations raise CategoriesError — fail loud, exit 2 via main().
@@ -172,7 +172,7 @@ def build(cwd=None, naive_count=False) -> tuple:
         "orphan_ids": sorted(orphans),
         "duplicate_names": discovery["duplicate_names"],
         # TODO states for the next /skill-atlas run — never defects, so
-        # never part of the exit code (DESIGN-PHASE2 §3.3).
+        # never part of the exit code (DESIGN §13.3).
         **atlas_annotate.phase2_stats(skills, categories,
                                       discovery["duplicate_names"]),
     }
@@ -194,7 +194,7 @@ def build(cwd=None, naive_count=False) -> tuple:
         "taxonomy": categories["taxonomy"],
         "nodes": nodes,
         "edges": edges,
-        # Indexed, not drawn (§4.1) — the visualization's "show unregistered"
+        # Indexed, not drawn (DESIGN §4.1) — the visualization's "show unregistered"
         # toggle synthesizes nodes from this client-side.
         "unregistered_index": [
             {"name": u["name"], "path": u["path"], "plugin": u["plugin"],

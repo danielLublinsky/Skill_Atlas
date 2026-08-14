@@ -1,6 +1,6 @@
 """Single source of truth for paths, env vars and settings merging.
 
-Fully project-local (DESIGN-PHASE2 §0 amendment 8): every artifact and
+Fully project-local (DESIGN §15): every artifact and
 curated file lives in `<scope>/.claude/skill-atlas/`, where the SCOPE is
 the directory skill-atlas runs in. There is no global artifact root and no
 artifact-location env var. The first explicit run in a directory creates
@@ -81,12 +81,12 @@ def categories_path() -> Path:
 
 
 def config_path() -> Path:
-    """This scope's searchable-tier opt-in (DESIGN-PHASE2 §3.2)."""
+    """This scope's searchable-tier opt-in (DESIGN §13.2)."""
     return atlas_home() / "config.json"
 
 
 def catalog_dir() -> Path:
-    """Derived search shards (DESIGN-PHASE2 §5) — rebuild, never repair."""
+    """Derived search shards (DESIGN §14.1) — rebuild, never repair."""
     return atlas_home() / "catalog"
 
 

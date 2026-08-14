@@ -133,7 +133,7 @@ failure) and stops only on exit 2 ([Makefile:6](../Makefile#L6)).
 | `SKILL_ATLAS_CLAUDE_DIR` | `~/.claude` | Claude Code config root — **inputs only**. The test seam: the suite and `dev/smoke_live.py` redirect it at a throwaway tree. |
 | `SKILL_ATLAS_AUTOBUILD` | `1` | `0` disables the SessionStart staleness rebuild entirely. |
 
-`SKILL_ATLAS_HOME` was **removed** (DESIGN-PHASE2 §0 amendment 8) — artifacts
+`SKILL_ATLAS_HOME` was **removed** (DESIGN §15) — artifacts
 always live in the `.claude/skill-atlas` of their scope. `SKILL_ATLAS_PROJECTS`,
 `SKILL_ATLAS_GATE_LAMBDA` and `SKILL_ATLAS_SUBAGENTS` went with the dropped
 usage phase. If you find any of these names in a doc, that doc is stale.

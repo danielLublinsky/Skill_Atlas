@@ -78,7 +78,7 @@ class TestShards(unittest.TestCase):
             self.assertNotIn("path: None", uncat)
 
     def test_empty_categories_still_searchable(self):
-        # §4.5 commitment: search works against an empty categories.json —
+        # DESIGN §13.7 commitment: search works against an empty categories.json —
         # everything lands in the always-present uncategorized shard.
         with helpers.EnvSandbox(copy_fixtures=True):
             _build()

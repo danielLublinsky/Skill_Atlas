@@ -1,5 +1,5 @@
 """Derived search catalog: catalog/_index.md + one shard per category +
-catalog/uncategorized.md (DESIGN-PHASE2 §5).
+catalog/uncategorized.md (DESIGN §14.1).
 
 Everything derives from graph.json alone — v3 nodes carry categories, tier
 and staleness, and the graph carries the frozen taxonomy — so there is one
@@ -8,11 +8,11 @@ sorted entries, no timestamps. The catalog dir is fully derived
 (rebuild-never-repair), which licenses deleting shards that no longer
 correspond to a category.
 
-Tier rule (§2): tier-off skills are excluded at emit time — if an entry is
+Tier rule (DESIGN §12): tier-off skills are excluded at emit time — if an entry is
 in a shard, search will eventually serve it, and a disabled-and-not-opted-in
 plugin must never come back through a side door. The uncategorized shard is
 always emitted, even against an empty taxonomy: search degrades to the flat
-shard, it never breaks (§4.5).
+shard, it never breaks (DESIGN §13.7).
 """
 
 import atlas_io
@@ -46,7 +46,7 @@ def _tier(node) -> str:
 def _token_list(members) -> str:
     """Concrete product/tool words for stage-1 routing: member plugin names
     first, then skill names, within a fixed budget. Derived, never curated —
-    always in sync with membership (DESIGN-PHASE2 §4.1)."""
+    always in sync with membership (DESIGN §14.2)."""
     plugins = sorted({n["plugin"] for n in members if n.get("plugin")})
     names = sorted({n["name"] for n in members})
     tokens, used = [], 0

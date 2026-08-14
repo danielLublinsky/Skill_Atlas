@@ -1,12 +1,12 @@
 """Schema validation and the validating writer for Phase 2's curated state.
 
-categories.json is CURATED (DESIGN-PHASE2 §3.1): never regenerated, never
+categories.json is CURATED (DESIGN §13.1): never regenerated, never
 repaired. Each scope carries its own complete file — taxonomy plus
 assignments — under its `.claude/skill-atlas/`. Every write flows through
 validate-then-atomic-replace here, and the build reads it through the
 strict loaders, which fail loud on a hand-edit that breaks the schema —
 build_graph maps CategoriesError to exit 2 with the violations on stderr.
-config.json (§3.2) gets the same treatment.
+config.json (DESIGN §13.2) gets the same treatment.
 
 The one thing that is never a schema violation: environmental drift. An
 assignment for a skill that no longer exists in the graph is the build's

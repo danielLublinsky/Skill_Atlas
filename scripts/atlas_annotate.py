@@ -4,7 +4,7 @@ stat block, over registered skill records.
 Two writers emit graph.json + catalog/: the full build (build_graph.py)
 and the post-write refresh in categorize.py. Both derive the same fields
 from the same curated files, so the derivation lives here once — the two
-emission paths cannot drift (DESIGN-PHASE2 §3.3).
+emission paths cannot drift (DESIGN §13.3).
 """
 
 import atlas_categories

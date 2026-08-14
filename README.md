@@ -178,6 +178,5 @@ and it deliberately does not track usage.
 [overview](docs/1-overview.md), then jump to the component you're touching
 (discovery, graph build, categorization, catalog & search, rendering, hooks).
 
-[**DESIGN.md**](DESIGN.md) — graph and visualization ·
-[**DESIGN-PHASE2.md**](DESIGN-PHASE2.md) — categorization and search
-(the historical record: what was considered, what was dropped, and why)
+[**DESIGN.md**](DESIGN.md) — the historical record for both phases: what was
+considered, what was chosen, what was dropped, and why

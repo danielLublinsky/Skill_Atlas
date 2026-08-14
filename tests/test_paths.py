@@ -93,7 +93,7 @@ class TestInstalledPlugins(unittest.TestCase):
             self.assertIn(sandbox.claude / "settings.local.json", paths)
             self.assertIn(project / ".claude" / "settings.json", paths)
             self.assertIn(Path("/x/alpha/1.0.0/.claude-plugin/plugin.json"), paths)
-            # Phase 2 build inputs join the fingerprint (DESIGN-PHASE2 §3.3):
+            # Phase 2 build inputs join the fingerprint (DESIGN §13.3):
             # this scope's own curated categories.json + config.json.
             self.assertIn(project / ".claude" / "skill-atlas" / "categories.json",
                           paths)

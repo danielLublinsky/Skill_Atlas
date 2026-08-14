@@ -66,7 +66,7 @@ Everything after `__DATA_JSON__` is plain D3 with no build step. Landmarks:
 
 ## The two views
 
-**Scope view is the default** (DESIGN-PHASE2 §0 amendment 2). Tabs sit centred
+**Scope view is the default** (DESIGN §7.3). Tabs sit centred
 on the control bar, apart from the filter dropdown: swapping the whole picture
 is a different act from subtracting from it.
 

@@ -124,7 +124,7 @@ description, so the bootstrap flow needs no second call.
 
 ## Bootstrap — once per scope
 
-Runs **autonomously; there is no approval step** (DESIGN-PHASE2 §0 amendment 1).
+Runs **autonomously; there is no approval step** (DESIGN §13.5).
 The taxonomy still freezes — for search stability, not approval.
 
 Requirements enforced by [`cmd_bootstrap`](../scripts/categorize.py#L250):
@@ -223,4 +223,4 @@ Renaming or merging categories is a **hand-edit of `categories.json` (taxonomy
 *and* every affected assignment)**, validated by `categorize.py import`, which
 warns about orphaned and uncovered skills but rejects only true schema
 violations. The long-term plan is editing in the atlas page with a download —
-`import` is the validated landing pad for that (DESIGN-PHASE2 §0 amendment 3).
+`import` is the validated landing pad for that (DESIGN §13.1).

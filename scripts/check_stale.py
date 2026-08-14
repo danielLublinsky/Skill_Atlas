@@ -1,5 +1,5 @@
 """SessionStart hook — rebuild this scope's graph when it is stale
-(DESIGN §5.1) and inject the skill-library index line (DESIGN-PHASE2 §6).
+(DESIGN §5.1) and inject the skill-library index line (DESIGN §14.3).
 
 Fully scope-local: the hook operates on `<cwd>/.claude/skill-atlas/` and
 ONLY where that directory already exists — a directory becomes a scope the
@@ -7,7 +7,7 @@ first time an explicit run (build_graph.py or /skill-atlas) creates it;
 the hook never initializes anything, so sessions in untouched directories
 stay untouched.
 
-Hook invariants (§6.1): always exit 0, swallow every exception, never
+Hook invariants (DESIGN §5.4): always exit 0, swallow every exception, never
 block. A slow hook is worse than a stale graph — the fingerprint walk
 aborts at 2 s and lets the session proceed. Stdout carries ONLY the
 documented SessionStart JSON contract — one hookSpecificOutput line, and

@@ -77,8 +77,9 @@ and project scope.
 
 ## Conventions for landing a change
 
-1. **Read the design docs for the area first.** DESIGN-PHASE2 §0's amendments
-   override its own body; the code overrides both.
+1. **Read the docs for the area first**, then DESIGN.md for why it is shaped
+   that way. DESIGN.md is the historical record, not a description of current
+   behaviour; the code overrides both.
 2. **Stdlib only.** No dependency has ever been added, and the plugin's install
    story depends on that.
 3. **Docstrings carry the *why*.** Every module here opens with the reasoning and
