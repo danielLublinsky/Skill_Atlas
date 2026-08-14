@@ -156,22 +156,6 @@ edge to the home category, dashed to the rest; search `cat:<name>` to isolate).
 - **Read it in place** — pin any skill or bundled file and hit **open markdown** to
   read the source in a popup without leaving the graph.
 
-## 📦 State
-
-All project-local, in `./.claude/skill-atlas/`.
-
-> **Commit `categories.json`** — your curated taxonomy, and the one file that isn't a
-> rebuildable cache. The first build drops a `.gitignore` covering the derived
-> siblings; commit that too. (A repo that ignores `.claude/` wholesale needs negation
-> rules first.)
-
-A plugin is searchable only when **both** halves hold — Claude Code has it disabled,
-*and* this scope opted it in. `edit-searchable` does both. The unit is a plugin, not
-a single skill.
-
-Skill Atlas reads manifests and skill files only. It never opens `~/.claude/projects`,
-and it deliberately does not track usage.
-
 ## 📚 Docs
 
 [**docs/**](docs/) — component guide, numbered 1–9: start at
