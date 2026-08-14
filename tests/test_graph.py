@@ -65,9 +65,9 @@ class TestGraphBuild(unittest.TestCase):
             self.assertEqual(stats["unregistered"], 1)  # qa
             self.assertEqual(stats["broken_refs"], 1)
             self.assertEqual(stats["dangling"], 3)
-            self.assertEqual(stats["duplicate_names"], ["graphify"])
+            self.assertEqual(stats["duplicate_names"], ["journal"])
             self.assertEqual(sorted(stats["orphan_ids"]),
-                             ["graphify@project", "graphify@user", "linked-skill"])
+                             ["journal@project", "journal@user", "linked-skill"])
             # The machine-wide naive walk is opt-in; default builds skip it.
             self.assertNotIn("skillmd_on_disk", stats)
 
@@ -159,7 +159,7 @@ class TestScopes(unittest.TestCase):
             project_graph = json.loads(
                 (helpers.atlas_dir(sandbox.project_dir) / "graph.json").read_text())
             self.assertEqual(project_graph["stats"]["skills"], 8)
-            self.assertEqual(project_graph["stats"]["duplicate_names"], ["graphify"])
+            self.assertEqual(project_graph["stats"]["duplicate_names"], ["journal"])
 
     def test_scope_settings_override_flips_enabled(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
@@ -227,7 +227,7 @@ class TestCategoryMerge(unittest.TestCase):
             by_id = {n["id"]: n for n in graph["nodes"]}
             self.assertEqual(by_id["alpha:two"]["categories"], ["eng", "docs"])
             self.assertFalse(by_id["alpha:two"]["category_stale"])
-            self.assertEqual(by_id["graphify@user"]["categories"], [])
+            self.assertEqual(by_id["journal@user"]["categories"], [])
             stats = graph["stats"]
             self.assertEqual(stats["uncategorized"], 4)  # 8 skills, 4 assigned
             self.assertEqual(stats["stale_categories"], 0)

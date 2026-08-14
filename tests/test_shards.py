@@ -50,7 +50,7 @@ class TestShards(unittest.TestCase):
             self.assertIn("- also in: eng", docs)
 
             uncat = _shard("uncategorized")
-            self.assertIn("## graphify [enabled]", uncat)
+            self.assertIn("## journal [enabled]", uncat)
             self.assertIn("## linked-skill [enabled]", uncat)
             self.assertIn("/skill-atlas", uncat)
 
@@ -85,7 +85,7 @@ class TestShards(unittest.TestCase):
             self.assertTrue(atlas_paths.catalog_index_path().exists())
             self.assertRegex(_index(), r"uncategorized\(5\)")
             uncat = _shard("uncategorized")
-            for skill_id in ("graphify", "plain-skill", "alpha:one"):
+            for skill_id in ("journal", "plain-skill", "alpha:one"):
                 self.assertIn(f"## {skill_id} [enabled]", uncat)
 
     def test_stale_marker_renders(self):

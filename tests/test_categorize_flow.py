@@ -132,11 +132,11 @@ class TestCategorizationFlow(unittest.TestCase):
             self.assertEqual(status["counts"]["uncategorized"], 8)
 
             # Bootstrap the project scope with its own full coverage —
-            # including both collision-renamed graphify variants.
+            # including both collision-renamed journal variants.
             assignments = dict(helpers.ASSIGNED)
             assignments.update({"beta:y": ["eng"], "linked-skill": ["eng"],
-                                "graphify@user": ["docs"],
-                                "graphify@project": ["docs"]})
+                                "journal@user": ["docs"],
+                                "journal@project": ["docs"]})
             proc = _cli("bootstrap", cwd=str(sandbox.project_dir),
                         stdin_text=json.dumps({"taxonomy": helpers.TAXONOMY,
                                                "assignments": assignments}))
@@ -157,7 +157,7 @@ class TestCategorizationFlow(unittest.TestCase):
             self.assertEqual(project_graph["stats"]["uncategorized"], 0)
             self.assertEqual(project_graph["stats"]["orphan_assignments"], [])
             node = next(n for n in project_graph["nodes"]
-                        if n["id"] == "graphify@project")
+                        if n["id"] == "journal@project")
             self.assertEqual(node["categories"], ["docs"])
 
     def test_description_edit_goes_stale_then_confirmed(self):

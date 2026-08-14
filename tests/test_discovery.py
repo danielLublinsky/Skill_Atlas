@@ -16,7 +16,7 @@ class TestDiscovery(unittest.TestCase):
             ids = sorted(s["id"] for s in result["skills"])
             self.assertEqual(ids, [
                 "alpha:one", "alpha:two", "beta:x", "beta:y",
-                "graphify@project", "graphify@user",
+                "journal@project", "journal@user",
                 "linked-skill", "plain-skill",
             ])
 
@@ -67,9 +67,9 @@ class TestDiscovery(unittest.TestCase):
     def test_duplicate_names_surfaced_not_merged(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             result = self._discover(sandbox)
-            self.assertEqual(result["duplicate_names"], ["graphify"])
+            self.assertEqual(result["duplicate_names"], ["journal"])
             dupes = sorted(s["id"] for s in result["skills"] if s.get("duplicate"))
-            self.assertEqual(dupes, ["graphify@project", "graphify@user"])
+            self.assertEqual(dupes, ["journal@project", "journal@user"])
 
     def test_same_name_from_two_marketplaces_gets_distinct_ids(self):
         """DESIGN-ISSUES issue 2: the rename to '<name>@<scope>' separated a
@@ -79,7 +79,7 @@ class TestDiscovery(unittest.TestCase):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             helpers.install_plugin(sandbox, "other-mp", "alpha", "2.0.0", "one")
             result = self._discover(sandbox)
-            self.assertEqual(result["duplicate_names"], ["alpha:one", "graphify"])
+            self.assertEqual(result["duplicate_names"], ["alpha:one", "journal"])
             ids = sorted(s["id"] for s in result["skills"] if s["name"] == "one")
             self.assertEqual(ids, ["alpha:one@fake-mp", "alpha:one@other-mp"])
             everything = [s["id"] for s in result["skills"]]

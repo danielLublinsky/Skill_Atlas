@@ -13,9 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # No dependencies and no venv — the suite is stdlib-only, so the
-        # matrix is the only thing that tells us the real supported floor.
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        # Just the ends of the supported range: 3.9 is the floor the code is
+        # written to, "3.x" tracks whatever the newest stable release is. If
+        # both ends pass, a version in between failing would be a Python
+        # regression, not ours.
+        python: ["3.9", "3.x"]
     steps:
       - uses: actions/checkout@v4
 

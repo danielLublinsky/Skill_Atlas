@@ -235,7 +235,7 @@ def discover(light=False) -> dict:
 def _assign_ids(skills) -> list:
     """Node id = the invocation string: '<plugin>:<name>' for plugin skills,
     bare '<name>' for user/project. Collisions on that string get an id with
-    a discriminator appended ('graphify@user') and the ambiguous invocation
+    a discriminator appended ('journal@user') and the ambiguous invocation
     string itself is returned — a duplicate name is a defect worth surfacing,
     not an edge case to merge."""
     for skill in skills:

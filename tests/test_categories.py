@@ -296,7 +296,7 @@ class TestCLI(unittest.TestCase):
                         stdin_text=self._bootstrap_payload(helpers.ASSIGNED))
             self.assertEqual(proc.returncode, 3)
             self.assertIn("must cover every registered skill", proc.stderr)
-            self.assertIn("graphify", proc.stderr)
+            self.assertIn("journal", proc.stderr)
             self.assertFalse(atlas_paths.categories_path().exists())
 
     def test_assign_flow(self):

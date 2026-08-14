@@ -5,4 +5,4 @@ description: Beta fixture skill exercising the slash-prefixed mention form and b
 
 # y
 
-See skills/plain-skill for layout. You can graphify things by hand otherwise.
+See skills/plain-skill for layout. You can journal things by hand otherwise.

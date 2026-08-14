@@ -111,7 +111,7 @@ scope, then marketplace, then version, then all three
 
 | Collision | Ids |
 | --- | --- |
-| project skill shadowing a user one | `graphify@user`, `graphify@project` |
+| project skill shadowing a user one | `journal@user`, `journal@project` |
 | one plugin name from two marketplaces | `frontend-design:frontend-design@claude-plugins-official`, `…@claude-code-plugins` |
 
 Scope comes first because it settles the shadowing case with the shortest

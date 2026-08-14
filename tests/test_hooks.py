@@ -117,8 +117,8 @@ class TestCheckStale(unittest.TestCase):
             _run(CHECK_STALE, sandbox.project_dir)
             assignments = dict(helpers.ASSIGNED)
             assignments.update({"beta:y": ["eng"], "linked-skill": ["eng"],
-                                "graphify@user": ["docs"],
-                                "graphify@project": ["docs"]})
+                                "journal@user": ["docs"],
+                                "journal@project": ["docs"]})
             proc = subprocess.run(
                 [sys.executable, str(helpers.SCRIPTS / "categorize.py"),
                  "--cwd", str(sandbox.project_dir), "bootstrap"],
@@ -202,7 +202,7 @@ class TestIndexLine(unittest.TestCase):
     def test_no_nag_when_fully_categorized(self):
         with helpers.EnvSandbox(copy_fixtures=True) as sandbox:
             assigned = dict(helpers.ASSIGNED)
-            assigned.update({"graphify@user": ["docs"], "graphify@project": ["docs"],
+            assigned.update({"journal@user": ["docs"], "journal@project": ["docs"],
                              "linked-skill": ["eng"], "beta:y": ["eng"]})
             helpers.write_categories(
                 sandbox,

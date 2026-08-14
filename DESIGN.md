@@ -103,7 +103,7 @@ different loss semantics:
 Regenerated wholesale on every build, never edited in place.
 
 **Node ids are invocation strings.** A skill's id is the exact string Claude
-Code invokes it with — `superpowers:brainstorming`, `graphify`. That string is
+Code invokes it with — `superpowers:brainstorming`, `journal`. That string is
 already unique and already namespaced; path-derived ids would have added a
 mapping for no benefit. Ids escalate to a disambiguated form
 (`name@user`, `name@project`, `plugin:name@marketplace`) on collision rather

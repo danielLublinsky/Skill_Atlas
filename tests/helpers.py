@@ -99,8 +99,8 @@ TAXONOMY = [
 ]
 
 # Which fixture skills an approved cache labels. alpha:two is the
-# multi-category member (M4/M6 exercise it); graphify, linked-skill and
-# beta:y stay uncategorized — graphify also dodges the id-vs-view question,
+# multi-category member (M4/M6 exercise it); journal, linked-skill and
+# beta:y stay uncategorized — journal also dodges the id-vs-view question,
 # since its id differs between the global and project views.
 ASSIGNED = {
     "alpha:one": ["eng"],
@@ -114,7 +114,7 @@ ASSIGNED = {
 # above stays for direct-write build tests, where uncategorized is the
 # legitimate transitional state.
 ASSIGNED_ALL = dict(ASSIGNED)
-ASSIGNED_ALL.update({"graphify": ["docs"], "beta:y": ["eng"],
+ASSIGNED_ALL.update({"journal": ["docs"], "beta:y": ["eng"],
                      "linked-skill": ["eng"]})
 
 
