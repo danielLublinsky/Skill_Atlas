@@ -6,8 +6,8 @@ first run creates, and every knob that changes where things land.
 ## Install
 
 ```bash
-git clone https://github.com/danielLublinsky/Skill_Atlas.git
-claude plugin marketplace add ./Skill_Atlas
+git clone https://github.com/danielLublinsky/Skill-Atlas.git
+claude plugin marketplace add ./Skill-Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 

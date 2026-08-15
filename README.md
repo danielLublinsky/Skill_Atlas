@@ -12,7 +12,7 @@ Search a graph of your collection instead of preloading it.
 <sub>53 skills, 6 kept enabled: **2,544 → 338 tokens per session (−86.7%)**. The other
 47 cost nothing until asked for.</sub>
 
-[![CI](https://github.com/danielLublinsky/Skill_Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/danielLublinsky/Skill_Atlas/actions/workflows/ci.yml)
+[![CI](https://github.com/danielLublinsky/Skill-Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/danielLublinsky/Skill-Atlas/actions/workflows/ci.yml)
 
 </div>
 
@@ -23,7 +23,7 @@ Search a graph of your collection instead of preloading it.
 ## ⚡ Install
 
 ```bash
-claude plugin marketplace add danielLublinsky/Skill_Atlas
+claude plugin marketplace add danielLublinsky/Skill-Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 
@@ -44,8 +44,8 @@ Then restart Claude Code — the update is staged until you do.
 <summary>From a local clone (for hacking on it)</summary>
 
 ```bash
-git clone https://github.com/danielLublinsky/Skill_Atlas.git
-claude plugin marketplace add ./Skill_Atlas
+git clone https://github.com/danielLublinsky/Skill-Atlas.git
+claude plugin marketplace add ./Skill-Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 
@@ -72,7 +72,7 @@ make build    # graph.json + catalog/ from your live manifests
 make render   # atlas.html
 make check    # CI gate: exit 1 on any broken reference or dangling mention
 make test     # unit suite against fixtures — never touches the real ~/.claude
-make release  # bump both manifests, validate, test, commit, tag — never pushes
+make release  # bump both manifests, validate, test — never commits or pushes
 ```
 
 The plugin cache is keyed by version, so a push without a bump ships no code to

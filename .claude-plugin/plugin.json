@@ -7,8 +7,8 @@
     "email": "developer@contiki.co.il",
     "url": "https://github.com/danielLublinsky"
   },
-  "homepage": "https://github.com/danielLublinsky/Skill_Atlas",
-  "repository": "https://github.com/danielLublinsky/Skill_Atlas",
+  "homepage": "https://github.com/danielLublinsky/Skill-Atlas",
+  "repository": "https://github.com/danielLublinsky/Skill-Atlas",
   "skills": [
     "./skills/skill-atlas",
     "./skills/skill-search"
