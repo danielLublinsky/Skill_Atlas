@@ -1,6 +1,6 @@
 {
   "name": "skill-atlas",
-  "version": "0.5.1",
+  "version": "0.5.0",
   "description": "Graph, categorize and search your installed Claude Code skill collection: what is loadable, what is disabled, what points at things that no longer exist \u2014 plus a zero-token searchable tier for dormant skills.",
   "author": {
     "name": "danson",
