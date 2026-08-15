@@ -61,6 +61,26 @@ jobs:
             exit 1
           fi
 
+          # Users track whatever main says, in either direction — a lower
+          # version rolls the whole fleet back. That is a real recovery move,
+          # but it is far more often a mistake, and it is the dangerous
+          # direction: an old version number hands users the cache directory
+          # they already have, stale contents and all, instead of a fresh
+          # extraction. Deliberate rollbacks say so in the commit message.
+          lower() { python3 -c "import sys;p=lambda s:tuple(int(x) for x in s.split('.'));sys.exit(0 if p(sys.argv[2])<p(sys.argv[1]) else 1)" "$1" "$2"; }
+          if lower "$before" "$after"; then
+            if git log -1 --format=%B HEAD | grep -qiE '\[(rollback|downgrade)\]'; then
+              echo "version decreased $before -> $after — allowed by [rollback] in the commit message"
+            else
+              echo
+              echo "::error::Version went DOWN, $before -> $after."
+              echo "Every installed user is rolled back to $after, and anyone who already"
+              echo "has a $after cache directory keeps its old contents rather than this code."
+              echo "If that is what you want, put [rollback] in the commit message."
+              exit 1
+            fi
+          fi
+
           # Both manifests must agree or the marketplace advertises one version
           # while the installed plugin.json reports another.
           market=$(git show "HEAD:.claude-plugin/marketplace.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["plugins"][0]["version"])')
