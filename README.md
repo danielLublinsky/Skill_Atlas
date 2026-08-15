@@ -27,8 +27,18 @@ claude plugin marketplace add danielLublinsky/Skill_Atlas
 claude plugin install skill-atlas@skill-atlas
 ```
 
-Python 3 only — no dependencies, no network (d3 is vendored). Later:
-`claude plugin update skill-atlas@skill-atlas`.
+Python 3 only — no dependencies, no network (d3 is vendored).
+
+**Update.** New versions arrive on their own — Claude Code refreshes marketplaces
+periodically and picks up the new version, applying it on the next restart. To
+pull one immediately:
+
+```bash
+claude plugin marketplace update skill-atlas
+claude plugin update skill-atlas@skill-atlas
+```
+
+Then restart Claude Code — the update is staged until you do.
 
 <details>
 <summary>From a local clone (for hacking on it)</summary>
