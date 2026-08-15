@@ -10,7 +10,7 @@
     {
       "name": "skill-atlas",
       "source": "./",
-      "version": "0.5.1",
+      "version": "0.5.0",
       "description": "Map, categorize and search every skill installed on your machine. Builds a graph of the whole collection — what is actually loadable, what is switched off, what points at things that no longer exist, what is duplicated — and renders it as a self-contained offline HTML atlas. Adds a third tier between enabled and disabled: 'searchable' skills cost zero tokens per session but stay findable through a two-stage catalog search, so a large collection stops competing for context.",
       "author": {
         "name": "daniel lublinsky",
