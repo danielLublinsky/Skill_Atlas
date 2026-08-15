@@ -117,11 +117,15 @@ release: v$NEW written to both manifests, validated, tests green.
 
   then:
     git commit -am "release v$NEW"
-    claude plugin tag . -m "skill-atlas %s"     # optional — bookkeeping only
     git push
     git checkout $PUBLISH_BRANCH && git merge --ff-only $RELEASE_BRANCH
-    git push --follow-tags
+    git push
     git checkout $RELEASE_BRANCH
+
+  optional: 'claude plugin tag . -m "skill-atlas %s"' before pushing, then
+  'git push --follow-tags'. Delivery does not depend on it — the version in
+  the manifests is the only signal, and this commit is already the marker:
+  git log -S'"version": "$NEW"' -- $PLUGIN
 
   --ff-only is the guard: if it refuses, $PUBLISH_BRANCH grew a commit of its
   own and the branches have drifted. Merge it back down before shipping.
