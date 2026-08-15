@@ -1,4 +1,4 @@
-.PHONY: build check render test smoke m4-check phase2-check clean
+.PHONY: build check render test smoke m4-check phase2-check release clean
 
 # Build graph.json from the live machine's manifests. Exit 1 from the script
 # means "built, with findings" — that is a report, not a failure; only exit 2
@@ -47,6 +47,15 @@ phase2-check:
 	@echo "     suggests running /skill-atlas"
 	@echo "  6. Open atlas.html -> toggle 'category view': hub per category, multi-category"
 	@echo "     skills hang between hubs, searchable skills show the halo"
+
+# Prepare a release: bump both manifests, validate, test, commit, tag. Never
+# pushes. The installed plugin cache is keyed by version, so a push without a
+# bump updates the metadata and ships no code — this is what makes it land.
+#   make release              0.5.0 -> 0.5.1
+#   make release BUMP=minor   0.5.0 -> 0.6.0
+#   make release VERSION=1.0.0
+release:
+	@bash dev/release.sh $(if $(VERSION),$(VERSION),$(if $(BUMP),$(BUMP),patch))
 
 clean:
 	rm -rf .claude/skill-atlas/graph.json .claude/skill-atlas/atlas.html \

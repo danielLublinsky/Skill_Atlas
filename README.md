@@ -62,7 +62,12 @@ make build    # graph.json + catalog/ from your live manifests
 make render   # atlas.html
 make check    # CI gate: exit 1 on any broken reference or dangling mention
 make test     # unit suite against fixtures — never touches the real ~/.claude
+make release  # bump both manifests, validate, test, commit, tag — never pushes
 ```
+
+The plugin cache is keyed by version, so a push without a bump ships no code to
+anyone already installed. `make release` (or `BUMP=minor`, `VERSION=1.0.0`) is
+what makes a change land.
 
 </details>
 
