@@ -7,6 +7,70 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The plugin cache is keyed by version: `cache/<marketplace>/<plugin>/<version>/`
+  # is never re-extracted once it exists, and `claude plugin update` declines a
+  # same-version change outright ("already at the latest version"). So a push
+  # that changes shipped code without changing the version reaches the
+  # marketplace metadata and updates nothing anyone runs. This job says so.
+  bump-guard:
+    name: version bumped when shipped code changed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare the version against what shipped before
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          # Branch creation pushes a null base, and a rewritten history can
+          # leave a base this clone no longer has. Nothing to compare against.
+          if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "no base commit to compare against — skipping"; exit 0
+          fi
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "base $BASE not in this clone (rewritten history?) — skipping"; exit 0
+          fi
+
+          # Everything under these paths is copied into the installed plugin
+          # and changes what the plugin does. Docs, tests, dev tooling and CI
+          # ride along in the cache too, but a stale copy of them harms nobody.
+          SHIPPED='skills/ scripts/ commands/ hooks/ vendor/ .claude-plugin/'
+          changed=$(git diff --name-only "$BASE" HEAD -- $SHIPPED)
+
+          if [ -z "$changed" ]; then
+            echo "no shipped code changed — a bump is not required"; exit 0
+          fi
+
+          ver() { git show "$1:.claude-plugin/plugin.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])'; }
+          before=$(ver "$BASE")
+          after=$(ver HEAD)
+
+          echo "shipped paths changed:"
+          echo "$changed" | sed 's/^/  /'
+          echo "version: $before -> $after"
+
+          if [ "$before" = "$after" ]; then
+            echo
+            echo "::error::Shipped code changed but the version is still $after."
+            echo "Installed users will not receive this push — 'claude plugin update'"
+            echo "declines a same-version change. Run 'make release' and push the bump."
+            exit 1
+          fi
+
+          # Both manifests must agree or the marketplace advertises one version
+          # while the installed plugin.json reports another.
+          market=$(git show "HEAD:.claude-plugin/marketplace.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["plugins"][0]["version"])')
+          if [ "$market" != "$after" ]; then
+            echo "::error::plugin.json says $after but marketplace.json says $market — they must match."
+            exit 1
+          fi
+
+          echo "ok: version moved $before -> $after, both manifests agree"
+
   test:
     name: tests · python ${{ matrix.python }}
     runs-on: ubuntu-latest
