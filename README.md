@@ -57,7 +57,7 @@ claude plugin install skill-atlas@skill-atlas
 | --- | --- |
 | **`/skill-atlas`** | Build the graph, categorize what's new, render `atlas.html`. **Run this once to set up.** |
 | **`/skill-atlas:edit-searchable`** | Move plugins in and out of the searchable tier, interactively. |
-| **`/skill-atlas:skill-search`** | Find the right skill for a task across the whole library, dormant tier included. Usually you never type this — Claude calls it on its own before a nontrivial task. |
+| **`/skill-atlas:skill-search`** | Find the right skill for a task across the whole library, dormant tier included. |
 | *(automatic)* | A SessionStart hook keeps everything fresh after that. |
 
 Then open `./.claude/skill-atlas/atlas.html` in a browser, and just ask for a
